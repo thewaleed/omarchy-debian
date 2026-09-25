@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# omarchy:summary=Pick and install Flathub applications with fzf
+
+fzf_args=(
+  --multi
+  --delimiter '\t'
+  --with-nth '1,2'
+  --preview 'flatpak remote-info --user flathub {2} 2>/dev/null'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:50%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:green,marker:green'
+)
+
+echo "Loading Flathub catalog..."
+apps=$(flatpak remote-ls --user --app --columns=name,application flathub | sort -f | fzf "${fzf_args[@]}" | cut -f2)
+
+if [[ -n $apps ]]; then
+  echo "$apps" | xargs flatpak install --user -y flathub
+  omarchy-show-done $?
+fi

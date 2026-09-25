@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# omarchy:summary=Install a Nerd Font and make it the system font
+# omarchy:args=<display-name> <package> <family>
+
+# Debian port: upstream installs Arch ttf-*-nerd packages, which Debian does
+# not ship. Fetch the matching archive from the official Nerd Fonts release
+# into ~/.local/share/fonts instead, then apply it as upstream does.
+
+name="${1-}"
+package="${2-}"
+family="${3-}"
+
+if [[ -z $name || -z $package || -z $family ]]; then
+  echo "Usage: omarchy-install-font <display-name> <package> <family>" >&2
+  exit 1
+fi
+
+case $package in
+ttf-cascadia-mono-nerd) archive=CascadiaMono ;;
+ttf-meslo-nerd) archive=Meslo ;;
+ttf-firacode-nerd) archive=FiraCode ;;
+ttf-victor-mono-nerd) archive=VictorMono ;;
+ttf-bitstream-vera-mono-nerd) archive=BitstreamVeraSansMono ;;
+ttf-iosevka-nerd) archive=Iosevka ;;
+*)
+  echo "omarchy-install-font: no Nerd Fonts archive known for $package" >&2
+  exit 1
+  ;;
+esac
+
+printf -v install_message '%q' "Installing ${name}..."
+printf -v archive_arg '%q' "$archive"
+printf -v family_arg '%q' "$family"
+
+exec omarchy-launch-floating-terminal-with-presentation "
+  set -e
+  echo ${install_message}
+  dir=\$HOME/.local/share/fonts/NerdFonts/${archive_arg}
+  tmp=\$(mktemp -d)
+  curl -fL --progress-bar https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${archive_arg}.tar.xz -o \"\$tmp/font.tar.xz\"
+  mkdir -p \"\$dir\"
+  tar -xJf \"\$tmp/font.tar.xz\" -C \"\$dir\"
+  rm -rf \"\$tmp\"
+  fc-cache -f \"\$dir\"
+  sleep 1
+  omarchy-font-set ${family_arg}
+"

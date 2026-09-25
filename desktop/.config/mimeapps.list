@@ -1,0 +1,20 @@
+[Default Applications]
+text/html=google-chrome.desktop
+x-scheme-handler/http=google-chrome.desktop
+x-scheme-handler/https=google-chrome.desktop
+x-scheme-handler/about=google-chrome.desktop
+x-scheme-handler/unknown=google-chrome.desktop
+x-scheme-handler/claude=com.anthropic.Claude.desktop
+x-scheme-handler/claude-cli=claude-code-url-handler.desktop
+text/plain=org.xfce.mousepad.desktop
+text/markdown=org.xfce.mousepad.desktop
+text/x-log=org.xfce.mousepad.desktop
+application/x-shellscript=org.xfce.mousepad.desktop
+text/x-python=org.xfce.mousepad.desktop
+application/json=org.xfce.mousepad.desktop
+text/x-csrc=org.xfce.mousepad.desktop
+inode/directory=org.gnome.Nautilus.desktop
+x-scheme-handler/antigravity=antigravity.desktop
+
+[Added Associations]
+x-scheme-handler/claude=com.anthropic.Claude.desktop;

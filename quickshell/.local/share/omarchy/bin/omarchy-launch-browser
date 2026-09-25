@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# omarchy:summary=Launch the registered desktop browser without UWSM
+# omarchy:args=[--private] [url...]
+
+exec /usr/bin/python3 - "$@" <<'PY'
+import sys
+import gi
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio
+
+arguments = sys.argv[1:]
+private = "--private" in arguments
+urls = [arg for arg in arguments if arg != "--private"]
+browser = Gio.AppInfo.get_default_for_uri_scheme("https")
+if browser is None:
+    raise SystemExit("No default HTTPS browser is registered.")
+if private:
+    command = browser.get_commandline()
+    identity = (browser.get_id() or command).lower()
+    flag = "--private-window" if any(name in identity for name in ("firefox", "zen")) else "--inprivate" if "edge" in identity else "--incognito"
+    browser = Gio.AppInfo.create_from_commandline(command + " " + flag, browser.get_name(), Gio.AppInfoCreateFlags.SUPPORTS_URIS)
+browser.launch_uris(urls, None)
+PY

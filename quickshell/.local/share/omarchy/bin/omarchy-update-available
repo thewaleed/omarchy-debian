@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# omarchy:summary=Check cached APT metadata for available Debian updates
+
+set -euo pipefail
+
+# No package-list refresh or repository fetch from the bar's timer. Inspect
+# the local APT database and retain the upstream 0=available, 1=none contract.
+simulation=$(LC_ALL=C apt-get --simulate -o Debug::NoLocking=1 upgrade) || exit 2
+updates=()
+while IFS= read -r line; do
+  if [[ $line == "Inst "* ]]; then
+    updates+=("${line#Inst }")
+  fi
+done <<< "$simulation"
+
+if (( ${#updates[@]} > 0 )); then
+  printf '%s\n' "${updates[@]}"
+  exit 0
+else
+  printf 'No upgrades in the cached APT package lists.\n'
+  exit 1
+fi

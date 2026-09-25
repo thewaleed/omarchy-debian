@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Session entry point for the GNU Stow-managed Debian shell.
+set -euo pipefail
+
+export OMARCHY_PATH="$HOME/.local/share/omarchy"
+export PATH="$OMARCHY_PATH/bin:$PATH"
+# Debian leaves the sbin directories off a user PATH; helpers such as the
+# Wi-Fi/Bluetooth restarts and network status need rfkill and iw from there.
+for dir in /usr/local/sbin /usr/sbin /sbin; do
+  [[ :$PATH: == *":$dir:"* ]] || PATH="$PATH:$dir"
+done
+
+case ${1:-help} in
+  help|--help|-h)
+    printf '%s\n' \
+      'Usage: quickshell-desktop <check|start|restart|ipc> [arguments]' \
+      '  check    Check the imported runtime and core command dependencies.' \
+      '  start    Run the shell in the foreground; does not enable autostart.' \
+      '  restart  Restart this shell, waiting for Quickshell 0.3.0 to exit.' \
+      '  ipc      Forward arguments to the shell IPC helper.'
+    ;;
+  check)
+    missing=0
+    for command in quickshell hyprctl jq inotifywait fc-match bash wpctl pactl nmcli powerprofilesctl brightnessctl wl-paste iw rfkill xkbcli; do
+      if command -v "$command" >/dev/null 2>&1; then
+        printf 'OK       %s\n' "$command"
+      else
+        printf 'MISSING  %s\n' "$command"
+        missing=1
+      fi
+    done
+    for file in shell/shell.qml config/omarchy/shell.json bin/omarchy-shell; do
+      if [[ -f $OMARCHY_PATH/$file ]]; then
+        printf 'OK       %s\n' "$file"
+      else
+        printf 'MISSING  %s\n' "$file"
+        missing=1
+      fi
+    done
+    printf '\nCore checks only; feature integration status is in ~/dotfils/QUICKSHELL.md.\n'
+    exit "$missing"
+    ;;
+  start|restart)
+    action=$1
+    shift
+    if (( $# > 0 )); then
+      printf 'The %s command does not accept additional arguments.\n' "$action" >&2
+      exit 2
+    fi
+    # FileView uses atomic replacement. Resolve the managed file first so
+    # saving shell settings updates the Stow source, not its destination link.
+    export OMARCHY_SHELL_CONFIG
+    OMARCHY_SHELL_CONFIG=$(realpath -e -- "$HOME/.config/omarchy/shell.json")
+    if [[ $action == "start" ]]; then
+      # Monitor scale lives in ~/.config/hypr/monitors.lua, which the Display
+      # panel updates; Hyprland applies it before the shell starts.
+      exec "$OMARCHY_PATH/bin/omarchy-launch-shell"
+    else
+      exec "$OMARCHY_PATH/bin/omarchy-restart-shell"
+    fi
+    ;;
+  ipc)
+    shift
+    exec "$OMARCHY_PATH/bin/omarchy-shell" "$@"
+    ;;
+  *)
+    printf 'Unknown command: %s\nRun quickshell-desktop --help for usage.\n' "$1" >&2
+    exit 2
+    ;;
+esac

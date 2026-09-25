@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# omarchy:summary=Launch a floating terminal with the Omarchy presentation wrapper
+# omarchy:args=<command>
+
+cmd="$*"
+# 130 is the user bailing with Ctrl-C; anything else gets the Done/Failed prompt.
+presentation_script="$cmd; code=\$?; if (( code != 130 )); then printf '\\nFinished with status %s. Press Enter to close.\\n' \"\$code\"; read -r; fi; exit \$code"
+
+exec setsid kitty --class org.omarchy.terminal --title 'Debian desktop' -e bash -c "$presentation_script"

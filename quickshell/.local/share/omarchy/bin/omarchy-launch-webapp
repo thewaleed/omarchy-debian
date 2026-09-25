@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# omarchy:summary=Launch a URL as a web app in the default supported browser
+# omarchy:args=<url>
+
+# Web apps need a Chromium-based browser (--app). Use the default browser when
+# it is one; otherwise the first installed Chromium-based browser.
+supported='google-chrome*|brave*|com.brave.Browser*|microsoft-edge*|chromium*|org.chromium.Chromium*|opera*|vivaldi*|helium*'
+
+desktop_file() {
+  local dir
+  for dir in "$HOME/.local/share" ${XDG_DATA_DIRS//:/ } /usr/share; do
+    [[ -f $dir/applications/$1 ]] && { printf '%s\n' "$dir/applications/$1"; return 0; }
+  done
+  return 1
+}
+
+browser=$(xdg-settings get default-web-browser)
+# shellcheck disable=SC2254
+case $browser in
+$supported) ;;
+*)
+  browser=""
+  for candidate in google-chrome.desktop com.brave.Browser.desktop chromium.desktop microsoft-edge.desktop org.chromium.Chromium.desktop; do
+    desktop_file "$candidate" >/dev/null && { browser=$candidate; break; }
+  done
+  ;;
+esac
+
+file=$(desktop_file "$browser") || {
+  omarchy-notification-send "Web apps need Chrome, Brave, Chromium, or Edge installed"
+  exit 1
+}
+
+# Debian port: take the whole Exec command (Flatpak browsers start with
+# `flatpak run ... <app-id>`), dropping desktop-entry field codes.
+exec_line=$(sed -n 's/^Exec=//p' "$file" | head -1)
+exec_line=${exec_line//@@u/}
+exec_line=${exec_line//@@/}
+read -r -a command <<<"$exec_line"
+args=()
+for word in "${command[@]}"; do
+  [[ $word == %? ]] || args+=("$word")
+done
+
+exec setsid "${args[@]}" --app="$1" "${@:2}"

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# omarchy:summary=Translate Arch package names used by upstream helpers to Debian names
+# omarchy:args=<package...>
+
+# Prints one Debian package name per argument. Names without a mapping are
+# printed unchanged. Keep in sync with the reverse aliases in omarchy-pkg-list.
+for pkg in "$@"; do
+  case $pkg in
+  openssh) echo openssh-server ;;
+  libfido2) echo fido2-tools ;;
+  pam-u2f) echo libpam-u2f ;;
+  networkmanager) echo network-manager ;;
+  bluez-utils) echo bluez ;;
+  libnotify) echo libnotify-bin ;;
+  python-gobject) echo python3-gi ;;
+  polkit) echo polkitd ;;
+  fwupd | vim | neovim | foot | alacritty | kitty | tmux | fzf | gum | ffmpeg | mpv | socat | flatpak) echo "$pkg" ;;
+  ttf-cascadia-mono-nerd) echo fonts-cascadia-code ;;
+  *) echo "$pkg" ;;
+  esac
+done

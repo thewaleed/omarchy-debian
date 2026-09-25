@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Antigravity Agent Manager
+Comment=Google Antigravity 2.0 desktop app (manual install in /opt/antigravity)
+Exec=/usr/local/bin/antigravity-app %U
+Icon=antigravity-agent-manager
+Terminal=false
+Categories=Development;

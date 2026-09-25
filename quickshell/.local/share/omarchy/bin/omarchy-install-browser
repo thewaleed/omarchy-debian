@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# omarchy:summary=Install a browser from the Debian catalog
+# omarchy:args=<chromium|chrome|brave|edge|firefox|zen>
+
+# Debian port: the upstream installer used pacman/AUR and Arch browser-policy
+# helpers; installs now go through omarchy-debian-app.
+(( $# > 0 )) || { echo "Usage: omarchy-install-browser <chromium|chrome|brave|edge|firefox|zen>" >&2; exit 1; }
+exec omarchy-debian-app install "browser.$1"

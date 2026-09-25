@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# omarchy:summary=Remove a browser installed from the Debian catalog
+# omarchy:args=<chromium|chrome|brave|edge|firefox|zen>
+
+(( $# > 0 )) || { echo "Usage: omarchy-remove-browser <chromium|chrome|brave|edge|firefox|zen>" >&2; exit 1; }
+
+current=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null || true)
+omarchy-debian-app remove "browser.$1" || exit 1
+
+# If the removed browser was the default, fall back to one that is still installed.
+if [[ $(omarchy-default-browser) == "$1" ]]; then
+  for fallback in chrome brave chromium firefox edge zen; do
+    [[ $fallback == "$1" ]] && continue
+    if omarchy-debian-app present "browser.$fallback"; then
+      omarchy-default-browser "$fallback"
+      break
+    fi
+  done
+fi

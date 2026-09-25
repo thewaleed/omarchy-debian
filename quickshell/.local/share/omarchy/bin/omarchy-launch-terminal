@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# omarchy:summary=Launch the default terminal in the active terminal's current directory
+# omarchy:args=[command...]
+
+dir=$(omarchy-cmd-terminal-cwd)
+
+# Kitty is launched directly; any other default goes through xdg-terminal-exec.
+if [[ $(xdg-terminal-exec --print-id) == kitty.desktop* ]]; then
+  exec setsid kitty --directory "$dir" "$@"
+fi
+
+exec setsid xdg-terminal-exec --dir="$dir" "$@"

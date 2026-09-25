@@ -1,0 +1,60 @@
+# Install with --no-install-recommends and -t trixie-backports.
+# Backports supplies the PipeWire/WirePlumber versions matching this machine.
+pipewire-audio
+wireplumber
+pulseaudio-utils
+rtkit
+network-manager
+upower
+power-profiles-daemon
+brightnessctl
+brightness-udev
+playerctl
+wl-clipboard
+wtype
+grim
+slurp
+libnotify-bin
+bluez-tools
+rfkill
+pkexec
+qrencode
+gawk
+libxkbcommon-tools
+fonts-jetbrains-mono
+fonts-noto-core
+fonts-noto-color-emoji
+fonts-font-awesome
+fonts-cascadia-code
+
+# Menu tools (capture, recording, OCR/QR, transcode, nightlight, about,
+# screensaver, theme switching, pickers, firmware).
+hyprpicker
+hyprsunset
+tesseract-ocr
+tesseract-ocr-eng
+tesseract-ocr-ara
+zbar-tools
+imagemagick
+ffmpeg
+wf-recorder
+mpv
+v4l-utils
+fastfetch
+socat
+xdg-terminal-exec
+fzf
+gum
+python3-terminaltexteffects
+fwupd
+plocate
+libglib2.0-bin
+psmisc
+swappy
+ripgrep
+
+# Theme images: Qt's WebP plugin (most theme backgrounds are .webp; the shell
+# draws the wallpaper) and the image picker's thumbnailers.
+qt6-image-formats-plugins
+libvips-tools
+ffmpegthumbnailer

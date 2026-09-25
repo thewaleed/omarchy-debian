@@ -1,0 +1,14 @@
+# Personal override: run the Antigravity IDE with its own data folder, since
+# the Antigravity 2.0 app (/opt) already uses ~/.config/Antigravity.
+[Desktop Entry]
+Name=Antigravity - URL Handler
+Comment=Experience liftoff
+GenericName=Text Editor
+Exec=/usr/share/antigravity/antigravity --user-data-dir=/home/thewaleed/.config/Antigravity-IDE --open-url %U
+Icon=antigravity
+Type=Application
+NoDisplay=true
+StartupNotify=true
+Categories=Utility;TextEditor;Development;IDE;
+MimeType=x-scheme-handler/antigravity;
+Keywords=vscode;

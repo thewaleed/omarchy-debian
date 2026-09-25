@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# omarchy:summary=Show or set DNS for the active physical NetworkManager connection
+# omarchy:args=[Cloudflare|Google|DHCP|Custom] [servers]
+
+set -euo pipefail
+
+# Configure the underlay through NetworkManager's authorized D-Bus API.
+# WARP continues to own its tunnel and VPN DNS; no resolver service is replaced.
+iface=$(ip -j -4 route show table main default | jq -r 'sort_by(.metric // 0) | map(select(.dev != "CloudflareWARP")) | .[0].dev // ""')
+[[ -n $iface ]] || { printf 'No active physical connection.\n' >&2; exit 1; }
+connection=$(nmcli -g GENERAL.CON-UUID device show "$iface")
+[[ -n $connection && $connection != "--" ]] || exit 1
+
+if (( $# == 0 )); then
+  automatic=$(nmcli -g ipv4.ignore-auto-dns connection show "$connection")
+  servers=$(nmcli -g ipv4.dns connection show "$connection")
+  if [[ $automatic != "yes" ]]; then
+    printf 'DHCP\n'
+  elif [[ $servers == *"1.1.1.1"* ]]; then
+    printf 'Cloudflare\n'
+  elif [[ $servers == *"8.8.8.8"* ]]; then
+    printf 'Google\n'
+  else
+    printf 'Custom\n'
+  fi
+  exit 0
+fi
+
+(( $# <= 2 )) || exit 2
+case $1 in
+  DHCP|dhcp)
+    nmcli connection modify "$connection" ipv4.ignore-auto-dns no ipv4.dns '' ipv6.ignore-auto-dns no ipv6.dns ''
+    ;;
+  Cloudflare|cloudflare|Google|google|Custom|custom)
+    case $1 in
+      Cloudflare|cloudflare) servers='1.1.1.1 1.0.0.1 2606:4700:4700::1111 2606:4700:4700::1001' ;;
+      Google|google) servers='8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844' ;;
+      *)
+        servers=${2:-}
+        if [[ -z $servers ]]; then
+          [[ -t 0 ]] || { printf 'Custom DNS requires server addresses.\n' >&2; exit 2; }
+          read -r -p 'DNS IP addresses (space or comma separated): ' servers
+        fi
+        ;;
+    esac
+    normalized=$(/usr/bin/python3 - "$servers" <<'PY'
+import ipaddress
+import sys
+try:
+    addresses = [ipaddress.ip_address(value) for value in sys.argv[1].replace(',', ' ').split()]
+    if not addresses:
+        raise ValueError()
+except ValueError:
+    raise SystemExit('Enter valid IPv4 or IPv6 DNS addresses.')
+print(','.join(str(value) for value in addresses if value.version == 4))
+print(','.join(str(value) for value in addresses if value.version == 6))
+PY
+    )
+    ipv4=${normalized%%$'\n'*}
+    if [[ $normalized == *$'\n'* ]]; then ipv6=${normalized#*$'\n'}; else ipv6=''; fi
+    nmcli connection modify "$connection" ipv4.ignore-auto-dns yes ipv4.dns "$ipv4" ipv6.ignore-auto-dns yes ipv6.dns "$ipv6"
+    ;;
+  *) printf 'Usage: omarchy-dns [Cloudflare|Google|DHCP|Custom] [servers]\n' >&2; exit 2 ;;
+esac
+
+nmcli device reapply "$iface"

@@ -1,0 +1,311 @@
+#!/bin/bash
+
+# omarchy:summary=Install, remove, or check an app from the Debian catalog
+# omarchy:args=<install|remove|present|list> [id]
+# omarchy:examples=omarchy-debian-app install browser.zen | omarchy-debian-app list
+
+# The catalog lives in $OMARCHY_PATH/default/omarchy/debian-apps.conf. Menu rows
+# run install/remove inside the floating presentation terminal, so every step
+# prints what it is doing and APT/Flatpak prompts stay visible.
+set -euo pipefail
+
+CATALOG="${OMARCHY_PATH:-$HOME/.local/share/omarchy}/default/omarchy/debian-apps.conf"
+
+usage() {
+  echo "Usage: omarchy-debian-app <install|remove|present|list> [id]" >&2
+  exit 2
+}
+
+# Sets: id label method packages source
+load() {
+  local line
+  line=$(grep -E "^${1//./\\.}\|" "$CATALOG" | head -1) || {
+    echo "omarchy-debian-app: '$1' is not in the Debian catalog" >&2
+    exit 1
+  }
+  IFS='|' read -r id label method packages source <<<"$line"
+  read -r -a pkgs <<<"$packages"
+}
+
+step() { echo -e "\n\e[32m$*\e[0m"; }
+
+# --- Vendor APT repositories ------------------------------------------------
+# Key and list paths follow each vendor's own instructions so their packages
+# never add a second, conflicting entry for the same repository.
+
+fetch_key() { # url destination [dearmor]
+  local tmp
+  tmp=$(mktemp)
+  curl -fsSL "$1" -o "$tmp"
+  if [[ ${3:-} == dearmor ]]; then
+    gpg --dearmor <"$tmp" | sudo install -D -m 0644 /dev/stdin "$2"
+  else
+    sudo install -D -m 0644 "$tmp" "$2"
+  fi
+  rm -f "$tmp"
+}
+
+write_list() { # file contents
+  printf '%s\n' "$2" | sudo install -D -m 0644 /dev/stdin "$1"
+}
+
+repo_files() {
+  case $1 in
+  sublime) echo /etc/apt/sources.list.d/sublime-text.sources /etc/apt/keyrings/sublimehq-pub.asc ;;
+  1password) echo /etc/apt/sources.list.d/1password.list /usr/share/keyrings/1password-archive-keyring.gpg ;;
+  signal) echo /etc/apt/sources.list.d/signal-xenial.list /usr/share/keyrings/signal-desktop-keyring.gpg ;;
+  tailscale) echo /etc/apt/sources.list.d/tailscale.list /usr/share/keyrings/tailscale-archive-keyring.gpg ;;
+  nordvpn) echo /etc/apt/sources.list.d/nordvpn.list /usr/share/keyrings/nordvpn-keyring.gpg ;;
+  antigravity) echo /etc/apt/sources.list.d/antigravity.list /etc/apt/keyrings/antigravity-repo-key.gpg ;;
+  *) echo "omarchy-debian-app: unknown repository '$1'" >&2; return 1 ;;
+  esac
+}
+
+add_repo() {
+  step "Adding the $1 APT repository..."
+  case $1 in
+  sublime)
+    fetch_key https://download.sublimetext.com/sublimehq-pub.gpg /etc/apt/keyrings/sublimehq-pub.asc
+    write_list /etc/apt/sources.list.d/sublime-text.sources "Types: deb
+URIs: https://download.sublimetext.com/
+Suites: apt/stable/
+Signed-By: /etc/apt/keyrings/sublimehq-pub.asc"
+    ;;
+  1password)
+    fetch_key https://downloads.1password.com/linux/keys/1password.asc /usr/share/keyrings/1password-archive-keyring.gpg dearmor
+    write_list /etc/apt/sources.list.d/1password.list \
+      "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main"
+    ;;
+  signal)
+    fetch_key https://updates.signal.org/desktop/apt/keys.asc /usr/share/keyrings/signal-desktop-keyring.gpg dearmor
+    write_list /etc/apt/sources.list.d/signal-xenial.list \
+      "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main"
+    ;;
+  tailscale)
+    fetch_key https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg /usr/share/keyrings/tailscale-archive-keyring.gpg
+    write_list /etc/apt/sources.list.d/tailscale.list \
+      "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian trixie main"
+    ;;
+  nordvpn)
+    fetch_key https://repo.nordvpn.com/gpg/nordvpn_public.asc /usr/share/keyrings/nordvpn-keyring.gpg dearmor
+    write_list /etc/apt/sources.list.d/nordvpn.list \
+      "deb [signed-by=/usr/share/keyrings/nordvpn-keyring.gpg] https://repo.nordvpn.com/deb/nordvpn/debian stable main"
+    ;;
+  antigravity)
+    # Google's Antigravity IDE (https://antigravity.google/download/linux/).
+    fetch_key https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg /etc/apt/keyrings/antigravity-repo-key.gpg dearmor
+    write_list /etc/apt/sources.list.d/antigravity.list \
+      "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main"
+    ;;
+  esac
+  sudo apt-get update
+}
+
+remove_repo() {
+  local files
+  files=$(repo_files "$1") || return 1
+  step "Removing the $1 APT repository..."
+  # shellcheck disable=SC2086
+  sudo rm -f -- $files
+}
+
+# --- Custom installers ------------------------------------------------------
+
+install_development_docker() {
+  sudo apt-get install -y "${pkgs[@]}"
+  sudo systemctl enable --now docker.service
+  echo "Docker is running. Use sudo for docker commands, or enable Setup > Security > Sudoless Docker."
+}
+remove_development_docker() {
+  sudo systemctl disable --now docker.service docker.socket 2>/dev/null || true
+  sudo apt-get remove -y "${pkgs[@]}"
+  echo "Images and volumes under /var/lib/docker were kept."
+}
+
+install_development_rust() {
+  sudo apt-get install -y rustup
+  rustup default stable
+}
+remove_development_rust() {
+  sudo apt-get remove -y rustup
+  if gum confirm "Also delete installed toolchains (~/.rustup and ~/.cargo)?"; then
+    rm -rf "$HOME/.rustup" "$HOME/.cargo"
+  fi
+}
+
+install_development_php_laravel() {
+  omarchy-debian-app present development.php.php || "$0" install development.php.php
+  composer global require laravel/installer
+  echo "Add ~/.config/composer/vendor/bin to your PATH to use the laravel command."
+}
+remove_development_php_laravel() {
+  composer global remove laravel/installer
+}
+
+install_development_elixir_phoenix() {
+  omarchy-debian-app present development.elixir.elixir || "$0" install development.elixir.elixir
+  mix local.hex --force
+  mix archive.install hex phx_new --force
+}
+remove_development_elixir_phoenix() {
+  mix archive.uninstall phx_new --force
+}
+
+# Coding agents, installed per user with each project's official method.
+install_ai_claude_code() {
+  curl -fsSL https://claude.ai/install.sh | bash
+}
+remove_ai_claude_code() {
+  rm -f "$HOME/.local/bin/claude"
+  rm -rf "$HOME/.local/share/claude"
+}
+
+install_ai_opencode() {
+  command -v npm >/dev/null || sudo apt-get install -y nodejs npm
+  npm install -g opencode-ai
+}
+remove_ai_opencode() {
+  npm uninstall -g opencode-ai
+}
+
+install_ai_hermes_agent() {
+  command -v uv >/dev/null || { echo "uv is required (https://docs.astral.sh/uv/)." >&2; return 1; }
+  uv tool install --python 3.13 'hermes-agent[all]'
+}
+remove_ai_hermes_agent() {
+  uv tool uninstall hermes-agent
+}
+
+# Herdr, the agent-aware terminal multiplexer (https://herdr.dev). The
+# official installer verifies the binary's SHA-256; `herdr update` updates it.
+install_ai_herdr() {
+  curl -fsSL https://herdr.dev/install.sh | sh
+}
+remove_ai_herdr() {
+  rm -f "$HOME/.local/bin/herdr"
+}
+
+custom_present() {
+  case $id in
+  ai.herdr) command -v herdr >/dev/null ;;
+  ai.claude-code) command -v claude >/dev/null ;;
+  ai.opencode) command -v opencode >/dev/null ;;
+  ai.hermes-agent) command -v hermes >/dev/null ;;
+  development.php.laravel) [[ -x $HOME/.config/composer/vendor/bin/laravel ]] ;;
+  development.elixir.phoenix) compgen -G "$HOME/.mix/archives/phx_new*" >/dev/null ;;
+  *) omarchy-pkg-present "${pkgs[0]}" ;;
+  esac
+}
+
+# --- Actions ----------------------------------------------------------------
+
+present() {
+  case $method in
+  custom) custom_present ;;
+  *) omarchy-pkg-present "${pkgs[0]}" ;;
+  esac
+}
+
+install() {
+  if present; then
+    echo "$label is already installed."
+    return 0
+  fi
+  step "Installing $label..."
+  case $method in
+  apt)
+    sudo apt-get install -y "${pkgs[@]}"
+    ;;
+  deb)
+    local dir
+    dir=$(mktemp -d)
+    curl -fL --progress-bar "$source" -o "$dir/${pkgs[0]}.deb"
+    # The _apt user must be able to read the file to install it.
+    chmod 0755 "$dir"
+    sudo apt-get install -y "$dir/${pkgs[0]}.deb"
+    rm -rf "$dir"
+    ;;
+  repo)
+    add_repo "$source"
+    sudo apt-get install -y "${pkgs[@]}"
+    ;;
+  flatpak)
+    flatpak install --user -y flathub "${pkgs[0]}"
+    ;;
+  custom)
+    "install_${id//[.-]/_}"
+    ;;
+  esac
+  post_install
+  step "$label installed."
+}
+
+post_install() {
+  case $id in
+  service.tailscale)
+    sudo systemctl enable --now tailscaled.service
+    echo "Run 'sudo tailscale up' to sign in."
+    ;;
+  service.nordvpn)
+    sudo usermod -aG nordvpn "$USER"
+    echo "Log out and back in, then run 'nordvpn login'."
+    ;;
+  editor.zed)
+    # Omarchy's default-editor helper launches Zed as `zeditor`.
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/bin/sh\nexec flatpak run dev.zed.Zed "$@"\n' >"$HOME/.local/bin/zeditor"
+    chmod +x "$HOME/.local/bin/zeditor"
+    ;;
+  editor.sublime)
+    # Omarchy's default-editor helper launches Sublime Text as `sublime_text`.
+    mkdir -p "$HOME/.local/bin"
+    ln -sf /opt/sublime_text/sublime_text "$HOME/.local/bin/sublime_text"
+    ;;
+  esac
+}
+
+remove() {
+  if ! present; then
+    echo "$label is not installed."
+    return 0
+  fi
+  step "Removing $label..."
+  case $method in
+  apt | deb)
+    sudo apt-get remove -y "${pkgs[@]}"
+    ;;
+  repo)
+    sudo apt-get remove -y "${pkgs[@]}"
+    remove_repo "$source"
+    ;;
+  flatpak)
+    flatpak uninstall -y "${pkgs[0]}"
+    ;;
+  custom)
+    "remove_${id//[.-]/_}"
+    ;;
+  esac
+  case $id in
+  editor.zed) rm -f "$HOME/.local/bin/zeditor" ;;
+  editor.sublime) rm -f "$HOME/.local/bin/sublime_text" ;;
+  esac
+  step "$label removed."
+}
+
+action=${1:-}
+case $action in
+list)
+  grep -vE '^\s*(#|$)' "$CATALOG" | cut -d'|' -f1,2,3 | column -t -s'|'
+  ;;
+install | remove | present)
+  [[ -n ${2:-} ]] || usage
+  load "$2"
+  # Per-user installs (Flatpak, coding agents) never need root.
+  if [[ $action != present && $method != flatpak && $id != ai.* ]] ||
+    [[ $action != present && $id == ai.claude ]]; then
+    source omarchy-sudo-keepalive
+  fi
+  "$action"
+  ;;
+*) usage ;;
+esac

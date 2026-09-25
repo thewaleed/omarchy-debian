@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# omarchy:summary=Install a terminal from the Debian catalog
+# omarchy:args=<alacritty|foot|kitty>
+
+(( $# > 0 )) || { echo "Usage: omarchy-install-terminal <alacritty|foot|kitty>" >&2; exit 1; }
+exec omarchy-debian-app install "terminal.$1"

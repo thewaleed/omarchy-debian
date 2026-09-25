@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# omarchy:summary=Review and install Debian and Flatpak updates in a terminal
+# omarchy:hidden=true
+
+set -euo pipefail
+
+# This is an explicit user action (bar update icon or Update > System), never
+# a background update. APT keeps its interactive transaction confirmation.
+exec omarchy-launch-floating-terminal-with-presentation '
+  echo -e "\e[32mDebian packages\e[0m"
+  sudo apt update && sudo apt full-upgrade
+  status=$?
+  if command -v flatpak >/dev/null; then
+    echo -e "\n\e[32mFlatpak applications\e[0m"
+    flatpak update || status=$?
+  fi
+  omarchy-shell -q omarchy.system-update refresh >/dev/null 2>&1 || true
+  (exit $status)
+'

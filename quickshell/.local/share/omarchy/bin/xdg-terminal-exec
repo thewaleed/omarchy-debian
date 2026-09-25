@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# omarchy:summary=Debian compatibility wrapper for xdg-terminal-exec
+# omarchy:args=[--print-id] | [options] [-e] <command...>
+
+# Debian ships xdg-terminal-exec 0.12, which lacks --print-id and treats any
+# unknown option as "open a terminal". Omarchy helpers ask for the default
+# terminal's desktop id, so answer that here and delegate everything else.
+set -euo pipefail
+
+real=/usr/bin/xdg-terminal-exec
+
+if [[ ${1:-} == --print-id ]]; then
+  list=${XDG_CONFIG_HOME:-$HOME/.config}/xdg-terminals.list
+  if [[ -f $list ]]; then
+    while IFS= read -r entry; do
+      entry=${entry%%#*}
+      entry=${entry//[[:space:]]/}
+      [[ -z $entry || $entry == [+-]* ]] && continue
+      for dir in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share /var/lib/flatpak/exports/share "$HOME/.local/share/flatpak/exports/share"; do
+        if [[ -f $dir/applications/${entry%%:*} ]]; then
+          printf '%s\n' "$entry"
+          exit 0
+        fi
+      done
+    done <"$list"
+  fi
+  printf 'kitty.desktop\n'
+  exit 0
+fi
+
+exec "$real" "$@"

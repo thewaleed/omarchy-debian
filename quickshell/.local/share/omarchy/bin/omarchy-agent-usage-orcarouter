@@ -1,0 +1,6 @@
+#!/bin/bash
+# omarchy:summary=Print the orcarouter usage record as JSON
+# omarchy:hidden=true
+
+# Debian addition; see omarchy-debian-router-usage.
+exec omarchy-debian-router-usage orcarouter "$@"

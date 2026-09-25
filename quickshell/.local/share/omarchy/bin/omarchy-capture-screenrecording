@@ -1,0 +1,198 @@
+#!/bin/bash
+
+# omarchy:summary=Start or stop screen recording
+# omarchy:group=capture
+# omarchy:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--stop-recording]
+# omarchy:examples=omarchy screenrecord | omarchy capture screenrecording --with-desktop-audio
+# omarchy:aliases=omarchy screenrecord
+#
+# Debian port: records with wf-recorder (APT) instead of gpu-screen-recorder,
+# which Debian does not package. Region selection, audio, the stop toggle, the
+# bar indicator, post-processing, and the saved notification match upstream.
+# The webcam overlay is not supported.
+
+[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
+OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
+
+# Debian creates no ~/Videos by default; create it like the screenshot helper.
+if [[ ! -d $OUTPUT_DIR ]]; then
+  if ! mkdir -p "$OUTPUT_DIR"; then
+    omarchy-notification-send -u critical -t 3000 "Could not create screen recording directory: $OUTPUT_DIR"
+    exit 1
+  fi
+  omarchy-notification-send "Created screen recording directory: $OUTPUT_DIR" -t 2000
+fi
+
+DESKTOP_AUDIO="false"
+MICROPHONE_AUDIO="false"
+FULLSCREEN="false"
+STOP_RECORDING="false"
+RECORDING_FILE="/tmp/omarchy-screenrecord-filename"
+# PulseAudio module ids for the desktop+microphone mix, unloaded on stop.
+AUDIO_MODULES_FILE="${XDG_RUNTIME_DIR:-/tmp}/omarchy-screenrecord-audio-modules"
+LOG_FILE=$([[ ${OMARCHY_SCREENRECORD_DEBUG:-false} == "true" ]] && echo "/tmp/omarchy-screenrecord.log" || echo "/dev/null")
+
+for arg in "$@"; do
+  case "$arg" in
+  --with-desktop-audio) DESKTOP_AUDIO="true" ;;
+  --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
+  --fullscreen) FULLSCREEN="true" ;;
+  --stop-recording) STOP_RECORDING="true" ;;
+  --with-webcam)
+    omarchy-notification-send -u normal -t 3000 "Webcam overlay is not available on this system"
+    exit 1
+    ;;
+  esac
+done
+
+select_capture_target() {
+  local target
+  target=$(omarchy-capture-region smart --match-monitor) || return 1
+
+  if [[ $target == monitor:* ]]; then
+    echo "$target"
+    return
+  fi
+
+  # slurp prints "X,Y WxH", which is also wf-recorder's -g format.
+  [[ $target =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] || return 1
+  echo "region:$target"
+}
+
+# Prints the PulseAudio source to record, or nothing for no audio.
+audio_source() {
+  local monitor mic mix module
+
+  monitor="$(pactl get-default-sink).monitor"
+  mic=$(pactl get-default-source)
+
+  if [[ $DESKTOP_AUDIO == "true" && $MICROPHONE_AUDIO == "true" ]]; then
+    # wf-recorder records one source, so mix both into a temporary null sink.
+    mix=omarchy_screenrecord_mix
+    : >"$AUDIO_MODULES_FILE"
+    module=$(pactl load-module module-null-sink sink_name=$mix sink_properties=device.description=Omarchy-Screenrecord) || return 1
+    echo "$module" >>"$AUDIO_MODULES_FILE"
+    pactl load-module module-loopback source="$monitor" sink=$mix latency_msec=20 >>"$AUDIO_MODULES_FILE"
+    pactl load-module module-loopback source="$mic" sink=$mix latency_msec=20 >>"$AUDIO_MODULES_FILE"
+    echo "$mix.monitor"
+  elif [[ $DESKTOP_AUDIO == "true" ]]; then
+    echo "$monitor"
+  elif [[ $MICROPHONE_AUDIO == "true" ]]; then
+    echo "$mic"
+  fi
+}
+
+cleanup_audio() {
+  local module
+  [[ -f $AUDIO_MODULES_FILE ]] || return 0
+  while read -r module; do
+    [[ -n $module ]] && pactl unload-module "$module" 2>/dev/null
+  done < <(tac "$AUDIO_MODULES_FILE")
+  rm -f "$AUDIO_MODULES_FILE"
+}
+
+start_screenrecording() {
+  local capture_args=()
+  local target
+
+  if [[ $FULLSCREEN == "true" ]]; then
+    target="monitor:$(omarchy-hyprland-monitor-focused)"
+  else
+    target=$(select_capture_target) || return 1
+  fi
+
+  case $target in
+  monitor:*) capture_args=(-o "${target#monitor:}") ;;
+  region:*) capture_args=(-g "${target#region:}") ;;
+  esac
+
+  local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+  local source audio_args=()
+  source=$(audio_source) || { cleanup_audio; return 1; }
+  [[ -n $source ]] && audio_args=("--audio=$source")
+
+  echo "===== $(date '+%F %T') args: $* target: $target audio: ${source:-none} =====" >>"$LOG_FILE"
+  wf-recorder "${capture_args[@]}" "${audio_args[@]}" -r 60 \
+    -c libx264 -p preset=veryfast -p crf=20 -f "$filename" 2>>"$LOG_FILE" &
+  local pid=$!
+
+  while kill -0 $pid 2>/dev/null && [[ ! -f $filename ]]; do
+    sleep 0.2
+  done
+
+  if kill -0 $pid 2>/dev/null; then
+    echo "$filename" >"$RECORDING_FILE"
+    toggle_screenrecording_indicator
+  else
+    cleanup_audio
+    omarchy-notification-send -u critical -t 5000 "Screen recording failed to start"
+    return 1
+  fi
+}
+
+stop_screenrecording() {
+  pkill -SIGINT -f "^wf-recorder" # SIGINT lets wf-recorder finish the file
+
+  local count=0
+  while pgrep -f "^wf-recorder" >/dev/null && ((count < 50)); do
+    sleep 0.1
+    count=$((count + 1))
+  done
+
+  toggle_screenrecording_indicator
+  cleanup_audio
+
+  if pgrep -f "^wf-recorder" >/dev/null; then
+    pkill -9 -f "^wf-recorder"
+    omarchy-notification-send -u critical -t 5000 "Screen recording error" "Recording process had to be force-killed. Video may be corrupted."
+  else
+    finalize_recording
+    local filename=$(cat "$RECORDING_FILE" 2>/dev/null)
+    echo "$filename"
+    local preview="${filename%.mp4}-preview.png"
+    ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
+    omarchy-notification-send "Screen recording saved" "Open with Super + Alt + , (or click this)" \
+      -t 10000 --image "${preview:-$filename}" \
+      --exec mpv -- "$filename"
+    (
+      sleep 2
+      rm -f "$preview"
+    ) &
+  fi
+  rm -f "$RECORDING_FILE"
+}
+
+toggle_screenrecording_indicator() {
+  omarchy-shell -q omarchy.indicators refresh
+}
+
+screenrecording_active() {
+  pgrep -f "^wf-recorder" >/dev/null
+}
+
+# Trim the first frames and normalize audio, as upstream does.
+finalize_recording() {
+  local latest
+  latest=$(cat "$RECORDING_FILE" 2>/dev/null)
+  [[ -f $latest ]] || return
+
+  local args=(-y -ss 0.1 -i "$latest" -c:v libx264 -preset veryfast -crf 20)
+  if ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$latest" 2>/dev/null | grep -q audio; then
+    args+=(-af "volume=enable='lt(t,0.4)':volume=0,afade=t=in:st=0.4:d=0.05,loudnorm=I=-14:TP=-1.5:LRA=11")
+  fi
+
+  local processed="${latest%.mp4}-processed.mp4"
+  if ffmpeg "${args[@]}" "$processed" -loglevel quiet 2>/dev/null; then
+    mv "$processed" "$latest"
+  else
+    rm -f "$processed"
+  fi
+}
+
+if screenrecording_active; then
+  stop_screenrecording
+elif [[ $STOP_RECORDING == "true" ]]; then
+  exit 1
+else
+  start_screenrecording
+fi

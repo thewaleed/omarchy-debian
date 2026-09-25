@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# omarchy:summary=Pick and remove manually installed APT packages with fzf
+
+fzf_args=(
+  --multi
+  --preview 'dpkg -s {1} 2>/dev/null | grep -E "^(Package|Version|Installed-Size|Description)"'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:red,marker:red'
+)
+
+pkg_names=$(apt-mark showmanual | sort | fzf "${fzf_args[@]}")
+
+if [[ -n $pkg_names ]]; then
+  # Show APT's plan (including dependents it would take along) before acting.
+  echo "$pkg_names" | tr '\n' ' ' | xargs sudo apt-get remove
+  omarchy-show-done $?
+fi

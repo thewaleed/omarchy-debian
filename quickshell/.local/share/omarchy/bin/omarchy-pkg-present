@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if all of the named packages are installed on the system (or false if any of them are missing).
+# omarchy:args=<packages...>
+
+declare -A installed=()
+while IFS= read -r pkg; do
+  [[ -z $pkg ]] || installed["$pkg"]=1
+done < <(omarchy-pkg-list)
+
+for pkg in "$@"; do
+  [[ -n $pkg && -n ${installed[$pkg]:-} ]] || exit 1
+done
+
+exit 0

@@ -1,0 +1,6 @@
+[Unit]
+Description=One-off review: was wayvnc-keepalive needed?
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/wayvnc-keepalive-check

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# omarchy:summary=Pick and remove installed Flatpak applications with fzf
+
+fzf_args=(
+  --multi
+  --delimiter '\t'
+  --with-nth '1,2'
+  --preview 'flatpak info {2} 2>/dev/null'
+  --preview-window 'down:50%:wrap'
+  --color 'pointer:red,marker:red'
+)
+
+apps=$(flatpak list --app --columns=name,application | sort -f | fzf "${fzf_args[@]}" | cut -f2)
+
+if [[ -n $apps ]]; then
+  echo "$apps" | xargs flatpak uninstall -y
+  omarchy-show-done $?
+fi

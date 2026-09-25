@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# omarchy:summary=Update system firmware using fwupd. Ensures the fwupd EFI binary is installed
+# omarchy:requires-sudo=true
+
+set -e
+echo -e "\e[32mUpdate Firmware\e[0m"
+
+if omarchy-cmd-missing fwupdmgr; then
+  omarchy-pkg-add fwupd
+fi
+
+# Debian port: fwupd installs its own signed EFI helper; no manual copy.
+
+fwupdmgr refresh --force
+sudo fwupdmgr update

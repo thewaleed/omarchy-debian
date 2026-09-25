@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# omarchy:summary=Debian compatibility shim: run a command without UWSM
+# omarchy:args=[--] <command> [args...]
+
+# Upstream helpers launch apps through `uwsm-app -- <command>`. UWSM is not
+# installed on this Debian session, and Hyprland already detaches its
+# children, so this shim drops UWSM's own options and runs the command.
+while (( $# > 0 )); do
+  case $1 in
+    --) shift; break ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+
+(( $# > 0 )) || { echo "uwsm-app: no command given" >&2; exit 2; }
+exec "$@"

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# omarchy:summary=Install packages with APT if they are missing
+# omarchy:args=<package...>
+
+# Debian port: upstream passes Arch package names; translate them first.
+mapfile -t packages < <(omarchy-pkg-debian-name "$@")
+(( ${#packages[@]} > 0 )) || exit 0
+
+if omarchy-pkg-missing "${packages[@]}"; then
+  if (( EUID == 0 )); then
+    apt-get install -y "${packages[@]}" || exit 1
+  else
+    sudo apt-get install -y "${packages[@]}" || exit 1
+  fi
+fi
+
+for pkg in "${packages[@]}"; do
+  if ! omarchy-pkg-present "$pkg"; then
+    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

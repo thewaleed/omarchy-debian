@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# omarchy:summary=List installed Debian packages and virtual package names
+# omarchy:hidden=true
+
+set -euo pipefail
+
+{
+  dpkg-query -W -f='${binary:Package}\t${db:Status-Status}\t${Provides}\n' |
+  awk -F '\t' '
+    $2 == "installed" {
+      name = $1
+      print name
+      sub(/:.*/, "", name)
+      print name
+      if (name == "google-chrome-stable") print "google-chrome"
+      if (name == "network-manager") print "networkmanager"
+      if (name == "bluez") print "bluez-utils"
+      if (name == "firefox-esr") print "firefox"
+      if (name == "python3-gi") print "python-gobject"
+      if (name == "libnotify-bin") print "libnotify"
+      if (name == "polkitd") print "polkit"
+      if (name == "openssh-server") print "openssh"
+      if (name == "fido2-tools") print "libfido2"
+      if (name == "libpam-u2f") print "pam-u2f"
+      count = split($3, provides, ",")
+      for (i = 1; i <= count; i++) {
+        sub(/[[:space:]]*\(.*/, "", provides[i])
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", provides[i])
+        if (provides[i] != "") print provides[i]
+      }
+    }
+  '
+
+  # Flatpak application ids, so menu guards can check Flathub installs too.
+  if command -v flatpak >/dev/null 2>&1; then
+    flatpak list --app --columns=application 2>/dev/null || true
+  fi
+} | sort -u

@@ -1,0 +1,9 @@
+[submodule "quickshell/.config/omarchy/themes/cpunk"]
+	path = quickshell/.config/omarchy/themes/cpunk
+	url = https://github.com/stannorbvb-cmd/cpunk
+[submodule "quickshell/.config/omarchy/themes/aetheria"]
+	path = quickshell/.config/omarchy/themes/aetheria
+	url = https://github.com/JJDizz1L/aetheria.git
+[submodule "quickshell/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer"]
+	path = quickshell/.config/omarchy/plugins/io.github.sirjul1337.lock-explorer
+	url = https://github.com/SirJul1337/omarchy-lock-explorer.git

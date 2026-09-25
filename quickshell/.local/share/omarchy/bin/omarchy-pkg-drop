@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# omarchy:summary=Remove packages with APT if they are installed
+# omarchy:args=<package...>
+
+# Debian port: upstream passes Arch package names; translate them first.
+mapfile -t packages < <(omarchy-pkg-debian-name "$@")
+
+installed=()
+for pkg in "${packages[@]}"; do
+  if dpkg-query -W -f='${db:Status-Status}' "$pkg" 2>/dev/null | grep -qx installed; then
+    installed+=("$pkg")
+  fi
+done
+
+if (( ${#installed[@]} > 0 )); then
+  sudo apt-get remove -y "${installed[@]}"
+fi

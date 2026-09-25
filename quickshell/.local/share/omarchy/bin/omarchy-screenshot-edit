@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# omarchy:summary=Open a screenshot in the editor, saving edits over the same file
+# omarchy:args=<file>
+
+# Debian port: upstream's tensaku-edit is not packaged; swappy is.
+exec swappy -f "$1" -o "$1"
