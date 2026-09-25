@@ -1,0 +1,13 @@
+[Unit]
+Description=Cloudflare tunnel for term.thewaleed.me
+Wants=network-online.target herdr-term-caddy.service
+After=network-online.target herdr-term-caddy.service
+
+[Service]
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/config-herdr-term.yml tunnel run
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

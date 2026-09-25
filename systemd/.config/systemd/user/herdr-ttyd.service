@@ -1,0 +1,10 @@
+[Unit]
+Description=Herdr in a browser terminal (ttyd, localhost only)
+
+[Service]
+ExecStart=%h/.local/bin/ttyd --interface 127.0.0.1 --port 7681 --writable --check-origin -t titleFixed=Herdr %h/.local/bin/herdr
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

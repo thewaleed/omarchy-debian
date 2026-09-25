@@ -73,16 +73,34 @@ sudo udevadm control --reload && sudo udevadm trigger --action=change --sysname-
 systemctl --user reset-failed ydotool && systemctl --user restart ydotool
 ```
 
+## Remote Herdr access
+
+- **Phone:** Herdr Mobile Relay plugin (`herdr plugin install 0cv/herdr-mobile-relay`), stable tunnel `relay-debian.thewaleed.me`, managed by the plugin wizard (`herdr-mobile-relay.service`). Reprint the pairing QR with `herdr plugin action invoke setup-link --plugin herdr-mobile-relay.events`.
+- **Office browser:** `term.thewaleed.me` → `herdr-term-tunnel` (cloudflared) → `herdr-term-caddy` (password) → `herdr-ttyd` → `herdr`. The Caddyfile lives in the `herdr` package; the three user units in `systemd`.
+
+Machine-local pieces that are not tracked:
+
+- `~/.local/bin/ttyd`: static binary from the tsl0922/ttyd GitHub release, checked against its `SHA256SUMS`
+- `~/.local/state/herdr-term/secret.env` (mode 600): `HERDR_TERM_USER=…` and `HERDR_TERM_HASH=…` from `caddy hash-password`
+- `~/.cloudflared/config-herdr-term.yml` and the tunnel credentials JSON from `cloudflared tunnel create herdr-term`
+
+```sh
+systemctl --user enable --now herdr-ttyd herdr-term-caddy herdr-term-tunnel
+systemctl --user stop herdr-term-tunnel   # cut office access immediately
+```
+
+The office page is a full shell behind one password: keep it long and never save it in the office browser.
+
 ## Other home packages
 
 These packages target `$HOME`:
 
 - `apps`: Antigravity launcher and `.desktop` entries
 - `fish`: `config.fish` and `conf.d/ssh-agent.fish`
-- `herdr`: herdr `config.toml`
+- `herdr`: herdr `config.toml` and the `herdr-term` Caddyfile
 - `kitty`: `kitty.conf`, its pywal template, and `~/.local/bin/wal-sync` (regenerates colors from the Omarchy background; autostarted by Hyprland)
 - `desktop`: chrome flags, `environment.d`, `mimeapps.list`, `xdg-terminals.list`, the LocalSend autostart entry, GTK bookmarks
-- `systemd`: the `wayvnc-keepalive-check` user service and timer. After stowing, run `systemctl --user enable --now wayvnc-keepalive-check.timer`.
+- `systemd`: the `wayvnc-keepalive-check` user service and timer, plus the `herdr-*` remote-access units (see above). After stowing, run `systemctl --user enable --now wayvnc-keepalive-check.timer`.
 - `wayvnc`: `~/.local/bin/wayvnc-keepalive` (autostarted by Hyprland) and `wayvnc-keepalive-check` (run by the `systemd` timer)
 - `gh`: GitHub CLI `config.yml` (`hosts.yml` holds the auth token and is intentionally not tracked)
 - `shell`: `.bashrc` and `.profile`

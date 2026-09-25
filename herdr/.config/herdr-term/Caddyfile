@@ -1,0 +1,16 @@
+# Password gate for the browser Herdr terminal (term.thewaleed.me).
+# cloudflared (herdr-term-tunnel) -> this Caddy -> ttyd (herdr-ttyd) -> herdr.
+# HERDR_TERM_USER / HERDR_TERM_HASH come from ~/.local/state/herdr-term/secret.env
+# (created with `caddy hash-password`; never tracked in this repo).
+{
+	admin off
+	auto_https off
+}
+
+http://:8380 {
+	bind 127.0.0.1
+	basicauth {
+		{$HERDR_TERM_USER} {$HERDR_TERM_HASH}
+	}
+	reverse_proxy 127.0.0.1:7681
+}

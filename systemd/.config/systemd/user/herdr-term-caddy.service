@@ -1,0 +1,14 @@
+[Unit]
+Description=Password gate in front of herdr-ttyd
+Wants=herdr-ttyd.service
+After=herdr-ttyd.service
+
+[Service]
+EnvironmentFile=%h/.local/state/herdr-term/secret.env
+ExecStart=/usr/bin/caddy run --config %h/.config/herdr-term/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
