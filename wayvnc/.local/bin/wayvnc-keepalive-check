@@ -1,0 +1,26 @@
+#!/bin/sh
+# One-off review (scheduled for 2026-10-24): did wayvnc-keepalive ever have to restart wayvnc?
+# If not, the plain autostart line is enough and the keepalive can be removed.
+LOG="$HOME/.cache/wayvnc.log"
+REPORT="$HOME/wayvnc-keepalive-report.txt"
+SINCE="2026-09-24 00:20"   # ignore the manual test restart at 00:19:22
+
+restarts=$(awk -v s="$SINCE" '/wayvnc exited/ && ($1" "substr($2,1,5)) > s' "$LOG" 2>/dev/null)
+n=$(printf '%s' "$restarts" | grep -c .)
+
+{
+  echo "wayvnc-keepalive review, $(date '+%F %T')"
+  echo "Restarts since $SINCE: $n"
+  [ "$n" -gt 0 ] && printf '%s\n' "$restarts"
+  echo
+  if [ "$n" -eq 0 ]; then
+    echo "Verdict: never needed. Autostart alone is enough; you can switch autostart.lua back to"
+    echo '  hl.exec_cmd("wayvnc 127.0.0.1 5900")  and delete ~/.local/bin/wayvnc-keepalive.'
+  else
+    echo "Verdict: it did restart wayvnc (exit 143 is usually just logout/shutdown). Keep it if any"
+    echo "other exits appear."
+  fi
+} > "$REPORT"
+
+notify-send -u critical "wayvnc-keepalive review" "Restarts in the last month: $n. See ~/wayvnc-keepalive-report.txt"
+systemctl --user disable wayvnc-keepalive-check.timer

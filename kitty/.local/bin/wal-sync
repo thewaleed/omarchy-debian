@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Regenerate pywal16 colors from the Omarchy background and push them to kitty.
+#   wal-sync          apply once for the current background
+#   wal-sync watch    apply now, then re-apply whenever the background changes
+set -uo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+STATE_DIR="$HOME/.local/state/omarchy/current"
+BG_LINK="$STATE_DIR/background"
+FRAME="${XDG_CACHE_HOME:-$HOME/.cache}/wal/video-frame.jpg"
+
+apply() {
+  local bg image
+  bg=$(readlink -f "$BG_LINK" 2>/dev/null) || return
+  [[ -f $bg ]] || return
+
+  image=$bg
+  case ${bg,,} in
+    *.mp4|*.webm|*.mkv|*.mov|*.gif)
+      command -v ffmpeg >/dev/null || return
+      ffmpeg -loglevel error -y -ss 1 -i "$bg" -frames:v 1 "$FRAME" || return
+      image=$FRAME
+      ;;
+  esac
+
+  # -n: Omarchy's shell owns the wallpaper; -e: don't touch other apps' reload hooks
+  wal -i "$image" -n -q -e --cols16 lighten --contrast 4.5 || return
+
+  # Running kitty windows: full reload incl. tab bar and borders
+  for sock in "${XDG_RUNTIME_DIR:-/run/user/$UID}"/kitty-*; do
+    [[ -S $sock ]] || continue
+    kitty @ --to "unix:$sock" set-colors --all --configured \
+      "$HOME/.cache/wal/colors-kitty.conf" >/dev/null 2>&1 || rm -f "$sock"
+  done
+}
+
+apply
+
+if [[ ${1:-} == watch ]]; then
+  bg_id() { echo "$(readlink -f "$BG_LINK") $(stat -L -c '%i %Y' "$BG_LINK" 2>/dev/null)"; }
+  last=$(bg_id)
+  inotifywait -mq -e create,moved_to,close_write,attrib --format '%f' "$STATE_DIR" |
+    while read -r file; do
+      [[ $file == background ]] || continue
+      sleep 0.3  # let theme switches finish writing files
+      current=$(bg_id)
+      [[ $current == "$last" ]] && continue
+      last=$current
+      apply
+    done
+fi

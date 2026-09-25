@@ -1,0 +1,4 @@
+# Let the active seat user open /dev/uinput (ydotoold) without joining the
+# "input" group, which would also expose every keyboard's raw events.
+# Must sort before 73-seat-late.rules, which turns the uaccess tag into an ACL.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

@@ -30,6 +30,27 @@ Panel {
   // Carry sub-notch touchpad deltas between wheel events.
   property real wheelAccumulator: 0
 
+  // Layout profiles and the full layout editor come from the hyprmoncfg
+  // plugin (crmne.hyprmoncfg). Its panel is hosted here rather than as its own
+  // bar widget, so the bar keeps one display icon; the LAYOUTS section hands
+  // off to it. Its preview-guard service is enabled through shell.json plugins.
+  readonly property string layoutPanelPath: Quickshell.env("HOME") + "/.config/omarchy/plugins/crmne.hyprmoncfg/Panel.qml"
+  property bool layoutPanelPresent: false
+  readonly property var layouts: layoutLoader.status === Loader.Ready ? layoutLoader.item : null
+  readonly property bool layoutsReady: !!layouts && layouts.backendConnected === true && layouts.documentReady === true
+  readonly property var layoutProfiles: {
+    if (!layoutsReady || !layouts.managedChecked) return []
+    var profiles = layouts.document && layouts.document.profiles instanceof Array ? layouts.document.profiles : []
+    var names = []
+    for (var i = 0; i < profiles.length; i++) {
+      var name = String((profiles[i] || {}).name || "")
+      if (name !== "") names.push(profiles[i])
+    }
+    return names
+  }
+  // Profile rows, then the "Layout editor" row.
+  readonly property int layoutRowCount: layoutProfiles.length + 1
+
   // Cursor model shared by keyboard and mouse. Sections:
   //   "brightness" - single slider row, selectedIndex = -1 sentinel
   //                  (mirrors Audio's slider rows). Only present if a
@@ -39,6 +60,8 @@ Panel {
   //                  between presets, identical to bluetooth's header.
   //   "monitors"   - vertical display row list for enabling/disabling displays;
   //                  j/k walks each row.
+  //   "layouts"    - hyprmoncfg profile rows plus the layout editor row;
+  //                  only present when the hyprmoncfg plugin is installed.
   // Mouse hover on a target updates root state via the components' `hovered`
   // signal so keyboard cursor and pointer share one highlight.
   readonly property var scalePresets: ["1", "1.25", "1.5", "1.6", "2", "3", "4"]
@@ -78,6 +101,7 @@ Panel {
     list.push("textsize")
     list.push("scale")
     if (displays.length > 1) list.push("monitors")
+    if (layouts) list.push("layouts")
     return list
   }
 
@@ -86,6 +110,7 @@ Panel {
     if (section === "textsize") return 0    // slider sentinel at -1, like brightness
     if (section === "scale") return scaleValues.length
     if (section === "monitors") return displays.length
+    if (section === "layouts") return layoutRowCount
     return 0
   }
 
@@ -154,6 +179,11 @@ Panel {
     if (focusSection === "monitors" && selectedIndex >= 0 && selectedIndex < displays.length) {
       var d = displays[selectedIndex]
       if (d) toggleDisplay(d.name, d.enabled)
+      return
+    }
+    if (focusSection === "layouts" && selectedIndex >= 0 && selectedIndex < layoutRowCount) {
+      if (selectedIndex < layoutProfiles.length) useLayoutProfile(layoutProfiles[selectedIndex].name)
+      else openLayoutEditor()
     }
     // brightness: no separate action; the slider value is the action.
   }
@@ -222,6 +252,7 @@ Panel {
 
     function brightness(percent: string): string { return root.brightnessIpc(percent) }
     function state(): string { return root.stateIpc() }
+    function layoutEditor(): void { root.openLayoutEditor() }
     function open() { root.open() }
     function close() { root.close() }
     function toggle() { root.toggle() }
@@ -304,6 +335,47 @@ Panel {
     if (!actionProc.running) actionProc.running = true
   }
 
+  // ---- Layouts (hyprmoncfg) ----
+  function injectLayouts() {
+    var target = layoutLoader.item
+    if (!target) return
+    target.bar = root.bar
+    target.anchorItem = button
+    target.hostWidget = root
+  }
+
+  // The hyprmoncfg panel claims the bar popout when it opens, which closes
+  // this one; closing first keeps the handoff to a single visible panel.
+  function openLayoutEditor() {
+    if (!root.layouts) return
+    root.close()
+    Qt.callLater(function() { if (root.layouts) root.layouts.openFromHotkey() })
+  }
+
+  // Saved profiles are previewed, not applied: the hyprmoncfg panel shows the
+  // 30-second keep/revert confirmation, so it opens alongside the preview.
+  function useLayoutProfile(name) {
+    var target = root.layouts
+    if (!target || !name) return
+    var switchable = name !== target.activeProfile && target.draftDirty !== true
+      && target.editPending !== true && target.previewPending !== true
+      && String(target.previewTransaction || "") === ""
+    root.openLayoutEditor()
+    if (!switchable) return
+    Qt.callLater(function() {
+      target.profileChoice = name
+      target.previewProfile(name)
+    })
+  }
+
+  function layoutProfileTag(profile) {
+    if (!profile) return ""
+    if (root.layouts && profile.name === root.layouts.activeProfile) return "Active"
+    if (profile.recommended === true) return "Recommended"
+    if (profile.exact_display_match === true) return "Matches"
+    return ""
+  }
+
   function setScale(scale) {
     actionProc.command = ["bash", "-c", "omarchy-hyprland-monitor-scaling " + scale]
     if (!actionProc.running) actionProc.running = true
@@ -349,7 +421,27 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: {
+    refresh()
+    layoutProbe.running = true
+  }
+  onBarChanged: injectLayouts()
+
+  Process {
+    id: layoutProbe
+    command: ["test", "-r", root.layoutPanelPath]
+    onExited: function(exitCode) { root.layoutPanelPresent = exitCode === 0 }
+  }
+
+  Loader {
+    id: layoutLoader
+    active: root.layoutPanelPresent
+    source: active ? "file://" + root.layoutPanelPath : ""
+    onLoaded: {
+      root.injectLayouts()
+      Qt.callLater(root.injectLayouts)
+    }
+  }
 
   // KeyboardPanel primes focus at open-time, so SUPER-bound IPC summons land
   // with j/k ready to navigate. Keep a default landing point, but don't paint
@@ -470,7 +562,13 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: Quickshell.screens.length > 1 ? "󰍺" : "󰍹"
-    onPressed: function(b) { root.toggle() }
+    tooltipText: root.layouts && root.layouts.activeProfile !== "" ? "Display · " + root.layouts.activeProfile : ""
+    onPressed: function(b) {
+      // A click while the layout editor is open closes it, like the
+      // standalone hyprmoncfg bar icon would.
+      if (root.layouts && root.layouts.opened) root.layouts.close()
+      else root.toggle()
+    }
     onWheelMoved: function(delta) {
       if (!root.brightnessAvailable) return
       var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
@@ -821,6 +919,91 @@ Panel {
             }
           }
 
+          // ---------- Layouts (hyprmoncfg) ----------
+          PanelSeparator {
+            visible: !!root.layouts
+            foreground: root.bar.foreground
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(10)
+            visible: !!root.layouts
+
+            Item {
+              width: parent.width
+              implicitHeight: Math.max(layoutsHeader.implicitHeight, layoutsProfile.implicitHeight)
+
+              PanelSectionHeader {
+                id: layoutsHeader
+                text: "LAYOUTS"
+                foreground: root.bar.foreground
+                fontFamily: root.bar.fontFamily
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+              }
+
+              Text {
+                id: layoutsProfile
+                textFormat: Text.PlainText
+                text: root.layouts ? (root.layouts.activeProfile || "") : ""
+                visible: text !== ""
+                color: Qt.darker(root.bar.foreground, 1.4)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                elide: Text.ElideRight
+                width: Math.min(implicitWidth, parent.width - layoutsHeader.implicitWidth - Style.space(18))
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(6)
+                anchors.verticalCenter: parent.verticalCenter
+              }
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              width: parent.width
+              leftPadding: Style.space(6)
+              rightPadding: Style.space(6)
+              wrapMode: Text.WordWrap
+              text: {
+                var target = root.layouts
+                if (!target) return ""
+                if (!target.backendConnected) return "hyprmoncfg daemon is not running"
+                return target.profileStatusTitle + " · " + target.profileStatusSubtitle
+              }
+              color: Qt.darker(root.bar.foreground, 1.4)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            Repeater {
+              model: root.layoutProfiles
+
+              LayoutRow {
+                required property var modelData
+                required property int index
+
+                width: panelColumn.width
+                rowIndex: index
+                icon: "󰕰"
+                label: String(modelData.name || "")
+                tag: root.layoutProfileTag(modelData)
+                current: !!root.layouts && modelData.name === root.layouts.activeProfile
+                onActivated: root.useLayoutProfile(modelData.name)
+              }
+            }
+
+            LayoutRow {
+              width: panelColumn.width
+              rowIndex: root.layoutProfiles.length
+              icon: "󰍺"
+              label: "Layout editor"
+              tag: "󰅂"
+              onActivated: root.openLayoutEditor()
+            }
+          }
+
           Item {
             width: parent.width
             height: Style.space(4)
@@ -852,6 +1035,77 @@ Panel {
       root.cursorActive = true
       root.focusSection = "scale"
       root.selectedIndex = pill.scaleIndex
+    }
+  }
+
+  component LayoutRow: CursorSurface {
+    id: layoutRow
+    required property int rowIndex
+    property string icon: ""
+    property string label: ""
+    property string tag: ""
+    signal activated()
+
+    hasCursor: root.cursorActive && root.focusSection === "layouts" && root.selectedIndex === rowIndex
+    onHasCursorChanged: if (hasCursor) root.ensureCursorVisible(layoutRow)
+    foreground: root.bar.foreground
+    fill: Style.hoverFillFor(root.bar.foreground, Color.accent)
+    currentFill: Style.selectedFillFor(root.bar.foreground, Color.accent)
+    implicitHeight: layoutInner.implicitHeight + Style.spacing.xl
+
+    Row {
+      id: layoutInner
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.leftMargin: Style.space(6)
+      anchors.rightMargin: Style.space(6)
+      spacing: Style.space(8)
+
+      Text {
+        text: layoutRow.icon
+        color: root.bar.foreground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.title
+        width: Style.space(22)
+        horizontalAlignment: Text.AlignHCenter
+        anchors.verticalCenter: parent.verticalCenter
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        text: layoutRow.label
+        color: root.bar.foreground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.body
+        elide: Text.ElideRight
+        width: parent.width - Style.space(22) - layoutTag.width - Style.space(16)
+        anchors.verticalCenter: parent.verticalCenter
+      }
+
+      Text {
+        id: layoutTag
+        textFormat: Text.PlainText
+        text: layoutRow.tag
+        color: Qt.darker(root.bar.foreground, 1.4)
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        horizontalAlignment: Text.AlignRight
+        anchors.verticalCenter: parent.verticalCenter
+      }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onContainsMouseChanged: if (containsMouse && !root.reflowingText) {
+        root.cursorActive = true
+        root.focusSection = "layouts"
+        root.selectedIndex = layoutRow.rowIndex
+      }
+      onClicked: layoutRow.activated()
     }
   }
 

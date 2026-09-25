@@ -38,3 +38,7 @@ set -U fish_pager_color_description yellow '-i'
 set -U fish_pager_color_prefix normal '--bold' '--underline'
 set -U fish_pager_color_progress brwhite '--background=cyan'
 set -U fish_pager_color_selected_background '-'
+
+# bun
+set --export BUN_INSTALL "$HOME/.bun"
+set --export PATH $BUN_INSTALL/bin $PATH

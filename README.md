@@ -4,10 +4,10 @@ GNU Stow source directory: `~/dotfils`. Target directory: `$HOME`.
 
 ## Clone
 
-Three Omarchy themes/plugins (`cpunk`, `aetheria`, `lock-explorer`) are git submodules:
+Four Omarchy themes/plugins (`cpunk`, `aetheria`, `lock-explorer`, `hyprmoncfg`) are git submodules:
 
 ```sh
-git clone --recurse-submodules git@github.com:thewaleed/omarch-debian.git ~/dotfils
+git clone --recurse-submodules git@github.com:thewaleed/omarchy-debian.git ~/dotfils
 ```
 
 ## Quickshell
@@ -63,6 +63,16 @@ sudo stow --simulate --verbose --dir="$HOME/dotfils" --target=/ fastfetch
 sudo stow --verbose --dir="$HOME/dotfils" --target=/ fastfetch
 ```
 
+## udev
+
+The `udev` package holds `60-uinput-uaccess.rules`, which lets the logged-in user open `/dev/uinput` so the `ydotool` user service can start. It uses `uaccess` rather than the `input` group, which would also expose every keyboard's raw events. Install it as a copy, not with stow: udev reads rules before `/home` is mounted, so a symlink into this repo would be skipped at boot.
+
+```sh
+sudo install -m 644 udev/etc/udev/rules.d/60-uinput-uaccess.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger --action=change --sysname-match=uinput
+systemctl --user reset-failed ydotool && systemctl --user restart ydotool
+```
+
 ## Other home packages
 
 These packages target `$HOME`:
@@ -70,12 +80,14 @@ These packages target `$HOME`:
 - `apps`: Antigravity launcher and `.desktop` entries
 - `fish`: `config.fish` and `conf.d/ssh-agent.fish`
 - `herdr`: herdr `config.toml`
-- `kitty`: `kitty.conf` and its pywal template
+- `kitty`: `kitty.conf`, its pywal template, and `~/.local/bin/wal-sync` (regenerates colors from the Omarchy background; autostarted by Hyprland)
 - `desktop`: chrome flags, `environment.d`, `mimeapps.list`, `xdg-terminals.list`, the LocalSend autostart entry, GTK bookmarks
 - `systemd`: the `wayvnc-keepalive-check` user service and timer. After stowing, run `systemctl --user enable --now wayvnc-keepalive-check.timer`.
+- `wayvnc`: `~/.local/bin/wayvnc-keepalive` (autostarted by Hyprland) and `wayvnc-keepalive-check` (run by the `systemd` timer)
+- `gh`: GitHub CLI `config.yml` (`hosts.yml` holds the auth token and is intentionally not tracked)
 - `shell`: `.bashrc` and `.profile`
 - `git`: `.gitconfig`
 
 ```sh
-stow --verbose --dir="$HOME/dotfils" --target="$HOME" apps fish herdr kitty desktop systemd shell git
+stow --verbose --dir="$HOME/dotfils" --target="$HOME" apps fish herdr kitty wayvnc gh desktop systemd shell git
 ```

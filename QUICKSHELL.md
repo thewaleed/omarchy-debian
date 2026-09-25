@@ -208,6 +208,17 @@ The pi coding agent was uninstalled (npm). `~/.pi` was left in place: it holds p
 
 The bar shows workspaces 1–4 always, plus any higher workspace while it exists, up to 9 (`alwaysShow`/`maximum` settings on the `omarchy.workspaces` entry in `shell.json` override this). SUPER+0 (workspace 10) is unbound in `hypr/bindings.lua` to match.
 
+## Display panel and hyprmoncfg
+
+The bar's Display panel (`omarchy.monitor`) also hosts [hyprmoncfg](https://github.com/crmne/omarchy-hyprmoncfg) monitor layouts, keeping one display icon:
+
+- **Backend:** `hyprmoncfg` 1.19.0 from the upstream release `.deb` (checksum-verified; the plugin's own installer uses pacman/yay and does not work here). `hyprmoncfgd.service` is enabled as a user unit.
+- **Plugin:** `crmne.hyprmoncfg` was added with `omarchy plugin add` (not `enable`, which would place a second bar icon). It is listed in `shell.json` `plugins` so its preview-guard service runs. Update it with `omarchy plugin update crmne.hyprmoncfg`.
+- **Panel:** `panels/monitor/Panel.qml` loads the plugin's `Panel.qml` and adds a LAYOUTS section: status, saved profiles (a click previews one with hyprmoncfg's 30-second keep/revert), and **Layout editor**, which hands off to the full hyprmoncfg editor anchored to the same icon. `omarchy-shell` IPC: `omarchy.monitor layoutEditor`. If the plugin is removed, the section disappears.
+- **Management is off** (`~/.config/hyprmoncfg/unmanaged`), so the daemon claims no displays and writes no config. Turning on **Managed by hyprmoncfg** in the editor adds a load line at the end of `hypr/hyprland.lua`, a generated `hypr/hyprmoncfg-monitors.lua`, and a marked wake block in `hypr/monitors.lua`; `~/.config/hypr` is a folded Stow link, so these land in this repo. `hyprmoncfg unmanage` removes them.
+- **Local plugin patch:** `PanelDropdown.qml` places its list when it opens instead of through a one-time binding (`mapToItem()` isn't reactive). Before the patch, lists such as MIRROR opened over the footer after the panel expanded. Upstream doesn't have this fix, so `omarchy plugin update` may need `git stash` inside the plugin first.
+- **Mirroring verified** (2026-09-25) with a headless `TEST-1` output: the editor wrote `mirror = "desc:…"` into `hyprmoncfg-monitors.lua`, Hyprland reported `mirrorOf=0` (eDP-1), and Revert restored the layout.
+
 ## Apps
 
 Installed through the catalog: Antigravity IDE (Google's APT repo), Nautilus (default for folders; SUPER+E, SUPER+SHIFT+F), Mousepad (default for text files), Neovim, Hermes Agent (`uv tool`), Herdr. The Antigravity 2.0 desktop app stays in `/opt/antigravity` as `antigravity-app` ("Antigravity Agent Manager" in Apps). The `apps` Stow package (`--no-folding`) holds its menu entry and icon, plus IDE overrides that run the IDE with `--user-data-dir=~/.config/Antigravity-IDE`, since both apps otherwise share `~/.config/Antigravity`.
