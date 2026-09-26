@@ -76,7 +76,8 @@ systemctl --user reset-failed ydotool && systemctl --user restart ydotool
 ## Remote Herdr access
 
 - **Phone:** Herdr Mobile Relay plugin (`herdr plugin install 0cv/herdr-mobile-relay`), stable tunnel `relay-debian.thewaleed.me`, managed by the plugin wizard (`herdr-mobile-relay.service`). Reprint the pairing QR with `herdr plugin action invoke setup-link --plugin herdr-mobile-relay.events`.
-- **Office browser:** `term.thewaleed.me` → `herdr-term-tunnel` (cloudflared) → `herdr-term-caddy` (password) → `herdr-ttyd` → `herdr`. The Caddyfile lives in the `herdr` package; the three user units in `systemd`.
+- **Office browser:** `term.thewaleed.me` → `herdr-term-tunnel` (cloudflared) → `herdr-term-caddy` (password) → `herdr-ttyd` → `herdr`. The Caddyfile lives in the `herdr` package; the user units in `systemd`.
+- **Office desktop:** `term.thewaleed.me/desktop/` (same password) → `herdr-term-desktop` (websockify + noVNC from `sudo apt install novnc`) → wayvnc on `127.0.0.1:5900`. Works only while a Hyprland session is logged in, since wayvnc starts from Hyprland autostart.
 
 Machine-local pieces that are not tracked:
 
@@ -85,7 +86,7 @@ Machine-local pieces that are not tracked:
 - `~/.cloudflared/config-herdr-term.yml` and the tunnel credentials JSON from `cloudflared tunnel create herdr-term`
 
 ```sh
-systemctl --user enable --now herdr-ttyd herdr-term-caddy herdr-term-tunnel
+systemctl --user enable --now herdr-ttyd herdr-term-desktop herdr-term-caddy herdr-term-tunnel
 systemctl --user stop herdr-term-tunnel   # cut office access immediately
 ```
 

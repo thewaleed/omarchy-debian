@@ -1,5 +1,6 @@
 # Password gate for the browser Herdr terminal (term.thewaleed.me).
-# cloudflared (herdr-term-tunnel) -> this Caddy -> ttyd (herdr-ttyd) -> herdr.
+# cloudflared (herdr-term-tunnel) -> this Caddy -> ttyd (herdr-ttyd) -> herdr,
+# and /desktop/ -> websockify (herdr-term-desktop) -> wayvnc.
 # HERDR_TERM_USER / HERDR_TERM_HASH come from ~/.local/state/herdr-term/secret.env
 # (created with `caddy hash-password`; never tracked in this repo).
 {
@@ -12,5 +13,19 @@ http://:8380 {
 	basicauth {
 		{$HERDR_TERM_USER} {$HERDR_TERM_HASH}
 	}
-	reverse_proxy 127.0.0.1:7681
+
+	# /desktop/: noVNC + websockify (herdr-term-desktop) -> wayvnc on 127.0.0.1:5900.
+	# Redirects live inside handle blocks so they run after basicauth
+	# (a bare redir directive is ordered before it).
+	handle /desktop {
+		redir * /desktop/
+	}
+	handle_path /desktop/* {
+		redir / /desktop/vnc.html?path=desktop/websockify&autoconnect=true&reconnect=true&resize=scale
+		reverse_proxy 127.0.0.1:6080
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:7681
+	}
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=noVNC for term.thewaleed.me/desktop (websockify to wayvnc, localhost only)
+
+[Service]
+ExecStart=/usr/bin/websockify --web /usr/share/novnc 127.0.0.1:6080 127.0.0.1:5900
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
