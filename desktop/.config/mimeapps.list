@@ -14,7 +14,7 @@ text/x-python=org.xfce.mousepad.desktop
 application/json=org.xfce.mousepad.desktop
 text/x-csrc=org.xfce.mousepad.desktop
 inode/directory=org.gnome.Nautilus.desktop
-x-scheme-handler/antigravity=antigravity.desktop
+x-scheme-handler/antigravity-ide=antigravity-url-handler.desktop
 
 [Added Associations]
 x-scheme-handler/claude=com.anthropic.Claude.desktop;

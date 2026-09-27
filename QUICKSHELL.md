@@ -221,7 +221,7 @@ The bar's Display panel (`omarchy.monitor`) also hosts [hyprmoncfg](https://gith
 
 ## Apps
 
-Installed through the catalog: Antigravity IDE (Google's APT repo), Nautilus (default for folders; SUPER+E, SUPER+SHIFT+F), Mousepad (default for text files), Neovim, Hermes Agent (`uv tool`), Herdr. The Antigravity 2.0 desktop app stays in `/opt/antigravity` as `antigravity-app` ("Antigravity Agent Manager" in Apps). The `apps` Stow package (`--no-folding`) holds its menu entry and icon, plus IDE overrides that run the IDE with `--user-data-dir=~/.config/Antigravity-IDE`, since both apps otherwise share `~/.config/Antigravity`.
+Installed through the catalog: Nautilus (default for folders; SUPER+E, SUPER+SHIFT+F), Mousepad (default for text files), Neovim, Hermes Agent (`uv tool`), Herdr. Antigravity IDE 2.x ships only as a tarball (Google's APT repo stops at 1.23.2), so it lives in `/opt/antigravity-ide`; to update, download "Antigravity IDE.tar.gz" from antigravity.google/download and copy it over that folder. The `apps` Stow package (`--no-folding`) holds its launcher, menu entries and icon, which run it with `--user-data-dir=~/.config/Antigravity-IDE` (the folder the 1.x install used, so settings and sign-in carry over). Extensions live in `~/.antigravity-ide/extensions`.
 
 `omarchy-sudo-keepalive` now skips `sudo -v` when `sudo -n true` works: with the NOPASSWD rule in `/etc/sudoers.d/99-thewaleed`, `sudo -v` still demanded a password and aborted catalog installs.
 

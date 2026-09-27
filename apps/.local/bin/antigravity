@@ -1,4 +1,4 @@
 #!/bin/sh
-# Antigravity IDE with its own data folder: the Antigravity 2.0 app in /opt
-# (antigravity-app) already uses ~/.config/Antigravity.
-exec /usr/bin/antigravity --user-data-dir="$HOME/.config/Antigravity-IDE" "$@"
+# Antigravity IDE (tarball install in /opt/antigravity-ide), kept on its
+# long-standing data folder so settings and sign-in carry over from 1.x.
+exec /opt/antigravity-ide/bin/antigravity-ide --user-data-dir="$HOME/.config/Antigravity-IDE" "$@"

@@ -1,14 +1,14 @@
-# Personal override: run the Antigravity IDE with its own data folder, since
-# the Antigravity 2.0 app (/opt) already uses ~/.config/Antigravity.
+# Antigravity IDE tarball install in /opt/antigravity-ide, on the data folder
+# kept from the 1.x install so settings and sign-in carry over.
 [Desktop Entry]
 Name=Antigravity IDE
 Comment=Experience liftoff
 GenericName=Text Editor
-Exec=/usr/share/antigravity/antigravity --user-data-dir=/home/thewaleed/.config/Antigravity-IDE %F
-Icon=antigravity
+Exec=/opt/antigravity-ide/antigravity-ide --user-data-dir=/home/thewaleed/.config/Antigravity-IDE %F
+Icon=antigravity-ide
 Type=Application
 StartupNotify=false
-StartupWMClass=Antigravity
+StartupWMClass=antigravity-ide
 Categories=TextEditor;Development;IDE;
 Actions=new-empty-window;
 Keywords=vscode;
@@ -25,6 +25,6 @@ Name[ko]=새 빈 창
 Name[ru]=Новое пустое окно
 Name[zh_CN]=新建空窗口
 Name[zh_TW]=開新空視窗
-Exec=/usr/share/antigravity/antigravity --user-data-dir=/home/thewaleed/.config/Antigravity-IDE --new-window %F
-Icon=antigravity
-MimeType=x-scheme-handler/antigravity;application/x-antigravity-workspace;
+Exec=/opt/antigravity-ide/antigravity-ide --user-data-dir=/home/thewaleed/.config/Antigravity-IDE --new-window %F
+Icon=antigravity-ide
+MimeType=x-scheme-handler/antigravity-ide;application/x-antigravity-workspace;
