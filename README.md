@@ -4,7 +4,7 @@ GNU Stow source directory: `~/dotfils`. Target directory: `$HOME`.
 
 ## Clone
 
-Four Omarchy themes/plugins (`cpunk`, `aetheria`, `lock-explorer`, `hyprmoncfg`) are git submodules:
+Three Omarchy themes/plugins (`cpunk`, `aetheria`, `lock-explorer`) are git submodules:
 
 ```sh
 git clone --recurse-submodules git@github.com:thewaleed/omarchy-debian.git ~/dotfils
