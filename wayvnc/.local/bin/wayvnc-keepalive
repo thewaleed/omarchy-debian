@@ -3,7 +3,9 @@
 # (e.g. when the output it captures goes away). Exits are logged for debugging.
 LOG="$HOME/.cache/wayvnc.log"
 while true; do
-  wayvnc 127.0.0.1 5900 >> "$LOG" 2>&1
+  # -r draws the pointer into the picture: Hyprland does not hand wayvnc a
+  # separate cursor image, so without it noVNC shows no mouse at all.
+  wayvnc -r 127.0.0.1 5900 >> "$LOG" 2>&1
   echo "$(date '+%F %T') wayvnc exited ($?), restarting" >> "$LOG"
   sleep 2
 done
