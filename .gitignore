@@ -5,3 +5,6 @@ __pycache__/
 *~
 *.swp
 desktop/.config/gtk-3.0/bookmarks
+
+# Crash dumps
+core.*
