@@ -575,6 +575,74 @@ def fetch_codex_rpc():
   return result
 
 
+def opencode_openai_auth():
+  path = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")) / "opencode" / "auth.json"
+  try:
+    entry = json.loads(path.read_text(encoding="utf-8")).get("openai") or {}
+  except Exception:
+    return None
+  if entry.get("type") != "oauth" or not entry.get("access"):
+    return None
+  return entry
+
+
+def wham_window(window):
+  if not isinstance(window, dict) or window.get("used_percent") is None:
+    return None
+  return limit_window({
+    "usedPercent": window.get("used_percent"),
+    "windowDurationMins": number(window.get("limit_window_seconds")) // 60,
+    "resetsAt": window.get("reset_at"),
+  })
+
+
+def fetch_opencode_limits():
+  # Debian port: a ChatGPT plan signed in through opencode never touches
+  # ~/.codex, so the app-server has no account to report. opencode's OAuth
+  # token reads the same usage endpoint the Codex CLI uses. Never refresh
+  # it here: rotating the refresh token would sign opencode out.
+  auth = opencode_openai_auth()
+  if not auth:
+    return None
+  result = {"limits": [], "tierLabel": "", "usageStatusText": "", "authHelpText": ""}
+  if number(auth.get("expires")) and number(auth.get("expires")) / 1000 < time.time():
+    result["usageStatusText"] = "OpenAI sign-in expired"
+    result["authHelpText"] = "Run any OpenAI model in opencode to refresh the sign-in."
+    return result
+
+  import urllib.error
+  import urllib.request
+  headers = {
+    "Authorization": "Bearer " + str(auth["access"]),
+    "User-Agent": "codex_cli_rs/0.0.0",
+    "Accept": "application/json",
+  }
+  if auth.get("accountId"):
+    headers["ChatGPT-Account-Id"] = str(auth["accountId"])
+  try:
+    request = urllib.request.Request("https://chatgpt.com/backend-api/wham/usage", headers=headers)
+    with urllib.request.urlopen(request, timeout=8) as response:
+      body = json.load(response)
+  except urllib.error.HTTPError as exc:
+    result["usageStatusText"] = "OpenAI limits unavailable"
+    result["authHelpText"] = f"ChatGPT usage endpoint returned HTTP {exc.code}."
+    return result
+  except Exception as exc:
+    result["usageStatusText"] = "OpenAI limits unavailable"
+    result["authHelpText"] = str(exc)
+    result["retryAdvised"] = True
+    return result
+
+  plan = str(body.get("plan_type") or "")
+  result["tierLabel"] = plan.capitalize() if plan else ""
+  rate = body.get("rate_limit") or {}
+  for window in (rate.get("primary_window"), rate.get("secondary_window")):
+    entry = wham_window(window)
+    if entry:
+      result["limits"].append(entry)
+  return result
+
+
 def main():
   parser = argparse.ArgumentParser()
   # --force rescans everything and rewrites the cache. --limits-only is kept
@@ -589,6 +657,8 @@ def main():
   max_age = 0 if args.force else (LIMITS_ONLY_REUSE_SECONDS if args.limits_only else SCAN_REUSE_SECONDS)
   stats = cached_local_stats(max_age)
   rpc = fetch_codex_rpc()
+  if not rpc["limits"] and not rpc["tierLabel"]:
+    rpc = fetch_opencode_limits() or rpc
 
   record = {
     "schemaVersion": 1,
