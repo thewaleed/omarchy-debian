@@ -109,7 +109,7 @@ start_screenrecording() {
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local source audio_args=()
   source=$(audio_source) || { cleanup_audio; return 1; }
-  [[ -n $source ]] && audio_args=("--audio=$source")
+  [[ -n $source ]] && audio_args=("--audio=$source" --sample-rate=48000)
 
   echo "===== $(date '+%F %T') args: $* target: $target audio: ${source:-none} =====" >>"$LOG_FILE"
   wf-recorder "${capture_args[@]}" "${audio_args[@]}" -r 60 \
@@ -170,16 +170,21 @@ screenrecording_active() {
   pgrep -f "^wf-recorder" >/dev/null
 }
 
-# Trim the first frames and normalize audio, as upstream does.
+# Mute the start-up blip and level the audio, but copy the video stream:
+# re-encoding it ran at about real time on a laptop CPU, so a long recording
+# took as long to save as to record. That drops upstream's 0.1s video trim
+# (stream copy can only cut on keyframes). dynaudnorm and the fast AAC coder
+# stand in for upstream's loudnorm, which alone cost ~3s per recorded minute;
+# this pass costs well under one.
 finalize_recording() {
   local latest
   latest=$(cat "$RECORDING_FILE" 2>/dev/null)
   [[ -f $latest ]] || return
 
-  local args=(-y -ss 0.1 -i "$latest" -c:v libx264 -preset veryfast -crf 20)
-  if ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$latest" 2>/dev/null | grep -q audio; then
-    args+=(-af "volume=enable='lt(t,0.4)':volume=0,afade=t=in:st=0.4:d=0.05,loudnorm=I=-14:TP=-1.5:LRA=11")
-  fi
+  ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$latest" 2>/dev/null | grep -q audio || return 0
+
+  local args=(-y -i "$latest" -map 0 -c:v copy -c:a aac -aac_coder fast -b:a 192k -ar 48000
+    -af "volume=enable='lt(t,0.4)':volume=0,afade=t=in:st=0.4:d=0.05,dynaudnorm=f=250:g=15:p=0.89")
 
   local processed="${latest%.mp4}-processed.mp4"
   if ffmpeg "${args[@]}" "$processed" -loglevel quiet 2>/dev/null; then
