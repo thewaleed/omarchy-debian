@@ -9,12 +9,15 @@ QtObject {
   property bool stayAwake: false
   property bool enabled: false
   property bool doNotDisturb: false
+  property bool rotationLocked: false
+  property bool rotationAvailable: false
   property var activePlayer: null
   property var sourcePlayers: []
 
   property var _setIdleEnabled: null
   property var _setNightlight: null
   property var _setDoNotDisturb: null
+  property var _setRotationLocked: null
   property var _runAction: null
   property var _playerKey: null
   property var _selectPlayer: null
@@ -29,6 +32,10 @@ QtObject {
 
   function setDoNotDisturb(value) {
     if (serviceId === "omarchy.notifications" && _setDoNotDisturb) _setDoNotDisturb(!!value)
+  }
+
+  function setRotationLocked(value) {
+    if (serviceId === "omarchy.rotation" && _setRotationLocked) _setRotationLocked(!!value)
   }
 
   function runAction(action, showFeedback, playerId) {

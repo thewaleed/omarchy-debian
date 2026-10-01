@@ -10,6 +10,7 @@
             "Reminder",
             "NightLight",
             "Dnd",
+            "RotationLock",
             "StayAwake"
           ]
         },
@@ -80,5 +81,8 @@
       "design": "weather"
     }
   ],
-  "version": 1
+  "version": 1,
+  "rotation": {
+    "sensorOffset": 2
+  }
 }

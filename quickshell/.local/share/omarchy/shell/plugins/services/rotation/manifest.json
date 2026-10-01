@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy.rotation",
+  "name": "Rotation",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Auto-rotates the internal display from the accelerometer, with a rotation lock for the bar indicator.",
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

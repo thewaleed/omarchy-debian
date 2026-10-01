@@ -20,8 +20,6 @@ hl.on("hyprland.start", function()
   -- VNC server for remote desktop via Cloudflare (desktop.thewaleed.me); localhost only.
   hl.exec_cmd(home .. "/.local/bin/wayvnc-keepalive")
 
-  -- Accelerometer rotation; needs iio-sensor-proxy (monitor-sensor).
-  if o.cmd_present("monitor-sensor") then
-    hl.exec_cmd(home .. "/.config/hypr/screen-rotation.sh")
-  end
+  -- Accelerometer rotation now lives in the shell's omarchy.rotation service,
+  -- which the bar's rotation lock indicator controls.
 end)

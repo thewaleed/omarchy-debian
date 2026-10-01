@@ -52,6 +52,11 @@
             "description": "Notification silencing"
           },
           {
+            "value": "RotationLock",
+            "label": "Rotation lock",
+            "description": "Screen auto-rotation lock"
+          },
+          {
             "value": "StayAwake",
             "label": "Stay awake",
             "description": "Idle lock override"
