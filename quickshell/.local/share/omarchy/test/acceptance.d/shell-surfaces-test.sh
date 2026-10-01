@@ -86,8 +86,10 @@ wtype -k Escape
 wait_until "reminder flow closes" 15 layer_absent "omarchy-reminders"
 
 # Render a real shell notification and clear it through the notification IPC.
+# Critical, because low/normal toasts are capped at 10s and the waits below can
+# take longer than that; critical gets 30s.
 omarchy-shell notifications dismissAll >/dev/null
-omarchy-notification-send "Acceptance notification" "Shell notification rendering" --expire-time=15000
+omarchy-notification-send "Acceptance notification" "Shell notification rendering" --urgency=critical --expire-time=30000
 wait_until "notification popup opens" 15 layer_present "omarchy-notifications"
 wait_until "notification content is visible" 15 screen_contains "Acceptance notification"
 screenshot "success-notification-popup"

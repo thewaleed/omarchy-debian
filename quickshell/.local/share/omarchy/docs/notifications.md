@@ -14,11 +14,12 @@ The end-user view (hotkey notices for time, battery, weather) is in
 
 ## Toast lifecycle
 
-A toast lives on screen for at least 5s (low), 8s (normal), or forever
-(critical), stretched up to 30s if the sender asked for a longer
-`expire_timeout`. Hovering pauses the countdown, and a content update restarts
-it — new text deserves a full look. Left-click invokes the default action,
-right-click or the hover-revealed close button dismisses.
+A toast lives on screen for 10s, or 30s if critical — long enough to notice and
+click a low-battery, crash, or migration alert, which otherwise stays reachable
+through history. A sender's `expire_timeout` is honored when it is shorter, but
+never stretches a toast past that cap. Hovering pauses the countdown, and a
+content update restarts it — new text deserves a full look. Left-click invokes
+the default action, right-click or the hover-revealed close button dismisses.
 
 Every on-screen popup is mirrored to its own file under
 `~/.local/state/omarchy/notifications/` (one JSON line per file, named

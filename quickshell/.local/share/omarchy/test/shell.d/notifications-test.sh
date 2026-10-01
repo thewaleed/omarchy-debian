@@ -508,7 +508,17 @@ assertDeepEqual(
   'notifications restore nothing from an empty popup dir'
 )
 
-assert(!notifications.popupExpired({ timestamp: 0 }, 0, 999999), 'critical popups never expire on restore')
+const LOW = 0, NORMAL = 1, CRITICAL = 2
+assertEqual(notifications.popupDuration(NORMAL, 0, CRITICAL), 10000, 'a normal toast with no requested timeout lives 10s')
+assertEqual(notifications.popupDuration(NORMAL, -1, CRITICAL), 10000, 'a normal toast asking for the server default lives 10s')
+assertEqual(notifications.popupDuration(LOW, 0, CRITICAL), 10000, 'a low toast with no requested timeout lives 10s')
+assertEqual(notifications.popupDuration(NORMAL, 4000, CRITICAL), 4000, 'a shorter requested timeout is honored')
+assertEqual(notifications.popupDuration(NORMAL, 60000, CRITICAL), 10000, 'a longer requested timeout is capped at 10s')
+assertEqual(notifications.popupDuration(CRITICAL, 0, CRITICAL), 30000, 'a critical toast expires after 30s instead of staying forever')
+assertEqual(notifications.popupDuration(CRITICAL, 60000, CRITICAL), 30000, 'a critical requested timeout is capped at 30s')
+assertEqual(notifications.popupDuration(CRITICAL, 5000, CRITICAL), 5000, 'a shorter critical requested timeout is honored')
+
+assert(!notifications.popupExpired({ timestamp: 0 }, 0, 999999), 'a popup with no lifetime never expires on restore')
 assert(!notifications.popupExpired({ timestamp: 1000 }, 8000, 5000), 'popups within their lifetime are restored')
 assert(notifications.popupExpired({ timestamp: 1000 }, 8000, 9000), 'popups past their lifetime are not restored')
 assert(
@@ -571,6 +581,10 @@ assert(!('exec' in legacyRestored), 'a restored legacy popup drops the old exec 
 assertEqual(notifications.parseExecArgv(legacyRestored.execArgv || ''), null, 'a restored legacy popup has no runnable click action')
 
 const serviceQml = fs.readFileSync(path.join(root, 'shell/plugins/notifications/Service.qml'), 'utf8')
+assert(
+  /function durationFor\(urgency, expireTimeout\) \{\s*return NotificationLogic\.popupDuration\(urgency, expireTimeout, NotificationUrgency\.Critical\)\s*\}/.test(serviceQml),
+  'notifications service takes toast lifetimes from the tested NotificationLogic decision'
+)
 assert(
   /readonly property int historyLimit: 10/.test(serviceQml),
   'notifications service keeps the last ten notifications in history'

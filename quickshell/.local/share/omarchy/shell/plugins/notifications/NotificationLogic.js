@@ -381,9 +381,31 @@ function parsePopupFiles(raw, normalUrgency) {
   return entries
 }
 
+var POPUP_DURATION = 10000
+var CRITICAL_POPUP_DURATION = 30000
+
+// FreeDesktop notification spec (and Quickshell) report expireTimeout in
+// milliseconds, so pass it through directly. 0 means the sender asked for
+// nothing in particular (unset, -1 "server default", or 0 "never").
+function requestedDuration(expireTimeout) {
+  var ms = Number(expireTimeout || 0)
+  if (!isFinite(ms) || ms <= 0) return 0
+  return Math.round(ms)
+}
+
+// Every toast leaves the screen on its own: 10s, or 30s for critical so an
+// actionable alert (low battery, crash, pending migration) stays long enough
+// to notice and click. A sender's own expire_timeout is honored when shorter,
+// never stretched past the cap. Missed toasts stay reachable via history.
+function popupDuration(urgency, expireTimeout, criticalUrgency) {
+  var cap = urgency === criticalUrgency ? CRITICAL_POPUP_DURATION : POPUP_DURATION
+  var requested = requestedDuration(expireTimeout)
+  return requested > 0 ? Math.min(cap, requested) : cap
+}
+
 // A persisted popup whose lifetime already ran out would have expired on
 // screen had the shell kept running, so it is not restored. duration 0 means
-// the popup never expires (critical urgency) and always survives restarts.
+// the popup has no lifetime and always survives restarts.
 // A restore-reset deadline outranks the original timestamp: without it, a
 // second restart would judge a re-shown toast by a clock that no longer
 // governs its display and drop it while it is still on screen.
@@ -473,6 +495,8 @@ if (typeof module !== "undefined") {
     persistablePopup: persistablePopup,
     serializePopup: serializePopup,
     parsePopupFiles: parsePopupFiles,
+    requestedDuration: requestedDuration,
+    popupDuration: popupDuration,
     popupExpired: popupExpired,
     popupPlacement: popupPlacement
   }
