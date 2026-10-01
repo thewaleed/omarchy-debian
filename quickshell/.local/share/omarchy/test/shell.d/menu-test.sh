@@ -440,8 +440,13 @@ assertEqual(
 )
 assertEqual(
   defaultById['trigger.capture.screenrecord.webcam'].when,
-  'omarchy-hw-webcam',
-  'menu only shows webcam screen recording when a webcam is available'
+  'false',
+  'menu hides webcam screen recording, which wf-recorder cannot overlay'
+)
+assertEqual(
+  defaultById['trigger.capture.screenrecord.stop'].when,
+  "pgrep -f '^(gpu-screen-recorder|wf-recorder)'",
+  'menu offers Stop Screenrecording while wf-recorder runs'
 )
 assert(
   /font\.family: row\.iconFont\.length > 0 \? row\.iconFont : root\.fontFamily/.test(menuQml),
