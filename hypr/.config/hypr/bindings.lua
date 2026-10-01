@@ -111,6 +111,9 @@ bind("SUPER + CTRL + ALT + B", "Show battery remaining", "omarchy-notification-b
 bind("PRINT", "Screenshot", "omarchy-capture-screenshot")
 bind("SHIFT + PRINT", "Screenshot window", "omarchy-capture-screenshot windows")
 bind("CTRL + PRINT", "Screenshot full screen", "omarchy-capture-screenshot fullscreen")
+-- Stops a running recording; otherwise opens the menu, which asks for audio,
+-- then full screen / window / region.
+bind("ALT + PRINT", "Screenrecording", "omarchy-capture-screenrecording --stop-recording || omarchy-menu toggle trigger.capture.screenrecord")
 bind("SUPER + CTRL + PRINT", "Extract text (OCR) from screenshot", "omarchy-capture-text")
 bind("SUPER + PRINT", "Color picker", "hyprpicker -a")
 

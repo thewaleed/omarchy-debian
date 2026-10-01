@@ -2,14 +2,15 @@
 
 # omarchy:summary=Start or stop screen recording
 # omarchy:group=capture
-# omarchy:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--stop-recording]
+# omarchy:args=[--fullscreen|--window|--region] [--with-desktop-audio] [--with-microphone-audio] [--stop-recording]
 # omarchy:examples=omarchy screenrecord | omarchy capture screenrecording --with-desktop-audio
 # omarchy:aliases=omarchy screenrecord
 #
 # Debian port: records with wf-recorder (APT) instead of gpu-screen-recorder,
 # which Debian does not package. Region selection, audio, the stop toggle, the
 # bar indicator, post-processing, and the saved notification match upstream.
-# The webcam overlay is not supported.
+# The webcam overlay is not supported. Without a --fullscreen, --window, or
+# --region flag it asks what to record before picking.
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
@@ -25,7 +26,7 @@ fi
 
 DESKTOP_AUDIO="false"
 MICROPHONE_AUDIO="false"
-FULLSCREEN="false"
+CAPTURE_MODE=""
 STOP_RECORDING="false"
 RECORDING_FILE="/tmp/omarchy-screenrecord-filename"
 # PulseAudio module ids for the desktop+microphone mix, unloaded on stop.
@@ -36,7 +37,9 @@ for arg in "$@"; do
   case "$arg" in
   --with-desktop-audio) DESKTOP_AUDIO="true" ;;
   --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
-  --fullscreen) FULLSCREEN="true" ;;
+  --fullscreen) CAPTURE_MODE="fullscreen" ;;
+  --window) CAPTURE_MODE="windows" ;;
+  --region) CAPTURE_MODE="region" ;;
   --stop-recording) STOP_RECORDING="true" ;;
   --with-webcam)
     omarchy-notification-send -u normal -t 3000 "Webcam overlay is not available on this system"
@@ -45,9 +48,25 @@ for arg in "$@"; do
   esac
 done
 
+# Prints an omarchy-capture-region mode for the picked kind of recording.
+ask_capture_mode() {
+  local choice
+  choice=$(omarchy-menu-select "Record" \
+    $'\U000F0379\tFull screen' \
+    $'\U000F05AF\tWindow' \
+    $'\U000F0489\tRegion' -- --width 300) || return 1
+
+  case $choice in
+  "Full screen") echo "fullscreen" ;;
+  "Window") echo "windows" ;;
+  "Region") echo "region" ;;
+  *) return 1 ;;
+  esac
+}
+
 select_capture_target() {
   local target
-  target=$(omarchy-capture-region smart --match-monitor) || return 1
+  target=$(omarchy-capture-region "$1" --match-monitor) || return 1
 
   if [[ $target == monitor:* ]]; then
     echo "$target"
@@ -95,10 +114,15 @@ start_screenrecording() {
   local capture_args=()
   local target
 
-  if [[ $FULLSCREEN == "true" ]]; then
+  local mode=$CAPTURE_MODE
+  if [[ -z $mode ]]; then
+    mode=$(ask_capture_mode) || return 1
+  fi
+
+  if [[ $mode == "fullscreen" ]]; then
     target="monitor:$(omarchy-hyprland-monitor-focused)"
   else
-    target=$(select_capture_target) || return 1
+    target=$(select_capture_target "$mode") || return 1
   fi
 
   case $target in
