@@ -31,9 +31,63 @@ local function toggle(keys, description, name, options)
   bind(keys, description, "omarchy-toggle-" .. name, options)
 end
 
+-- Layout-aware full screen that keeps the top bar and gaps. Dwindle and
+-- floating windows use Hyprland's maximized mode. Scrolling widens the column
+-- to the full screen instead, so neighbouring columns stay reachable, and
+-- the second press restores the width the column had before.
+local scrolling_widths = {}
+
+-- The column width as a fraction of the usable monitor width, the unit
+-- scrolling's colresize takes. Calibrated against live geometry on 0.55.
+local function column_fraction(window)
+  local monitor = window.monitor
+  local width = monitor.width / monitor.scale
+  if monitor.transform % 2 == 1 then
+    width = monitor.height / monitor.scale
+  end
+  local gaps_out = hl.get_config("general.gaps_out")
+  local gaps_in = hl.get_config("general.gaps_in")
+  local border = hl.get_config("general.border_size")
+  local usable = width - gaps_out.left - gaps_out.right
+  local fraction = (window.size.x + gaps_in.left + gaps_in.right + border) / usable
+  return math.floor(fraction * 1000 + 0.5) / 1000
+end
+
+local function toggle_full_screen()
+  local window = hl.get_active_window()
+  if window == nil then
+    return
+  end
+
+  -- Already full screen in any mode (including app-requested): leave it.
+  if window.fullscreen ~= 0 then
+    hl.dispatch(hl.dsp.window.fullscreen_state({ internal = 0, client = 0 }))
+    return
+  end
+
+  if window.floating or window.workspace.tiled_layout ~= "scrolling" then
+    hl.dispatch(hl.dsp.window.fullscreen({ mode = "maximized" }))
+    return
+  end
+
+  if column_fraction(window) >= 0.99 then
+    local previous = scrolling_widths[window.address] or hl.get_config("scrolling.column_width")
+    scrolling_widths[window.address] = nil
+    hl.dispatch(hl.dsp.layout("colresize " .. previous))
+  else
+    scrolling_widths[window.address] = column_fraction(window)
+    hl.dispatch(hl.dsp.layout("colresize 1.0"))
+  end
+end
+
+hl.on("window.close", function(window)
+  scrolling_widths[window.address] = nil
+end)
+
 -- Window management (personal bindings win over Omarchy's).
-bind("SUPER + F", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
-bind("SUPER + CTRL + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+bind("SUPER + F", "Full screen (keeps bar, layout-aware)", toggle_full_screen)
+bind("SUPER + CTRL + F", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))
+bind("SUPER + ALT + F", "True full screen (covers bar)", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 bind("SUPER + T", "Kill a window by clicking it", "hyprctl kill")
 bind("SUPER + K", "Swap split", hl.dsp.layout("swapsplit"))
 bind("SUPER + L", "Toggle workspace layout", "omarchy-hyprland-workspace-layout-toggle")
