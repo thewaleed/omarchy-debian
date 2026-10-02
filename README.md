@@ -100,7 +100,7 @@ These packages target `$HOME`:
 - `fish`: `config.fish` and `conf.d/ssh-agent.fish`
 - `herdr`: herdr `config.toml` and the `herdr-term` Caddyfile
 - `kitty`: `kitty.conf`, its pywal template, and `~/.local/bin/wal-sync` (regenerates colors from the Omarchy background; autostarted by Hyprland)
-- `desktop`: chrome flags, `environment.d`, `mimeapps.list`, `xdg-terminals.list`, the LocalSend autostart entry, GTK bookmarks
+- `desktop`: chrome flags, `environment.d`, `mimeapps.list`, `xdg-terminals.list`, the LocalSend autostart entry, GTK bookmarks, Nautilus bookmarks, Mousepad `accels.scm`
 - `systemd`: the `wayvnc-keepalive-check` user service and timer, plus the `herdr-*` remote-access units (see above). After stowing, run `systemctl --user enable --now wayvnc-keepalive-check.timer`.
 - `wayvnc`: `~/.local/bin/wayvnc-keepalive` (autostarted by Hyprland) and `wayvnc-keepalive-check` (run by the `systemd` timer)
 - `gh`: GitHub CLI `config.yml` (`hosts.yml` holds the auth token and is intentionally not tracked)
