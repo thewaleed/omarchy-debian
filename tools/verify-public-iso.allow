@@ -1,0 +1,8 @@
+# Files verify-public-iso.sh may ignore: vendor files that contain a short,
+# common string that happens to equal one of this machine's secrets.
+# One ISO path per line. Only add a file after checking it's unmodified vendor content.
+#
+# Antigravity IDE is installed by hand into /opt (no dpkg md5sums to check against).
+/opt/antigravity-ide/antigravity-ide
+/opt/antigravity-ide/resources/app/extensions/antigravity/bin/language_server_linux_x64
+/opt/antigravity-ide/resources/app/out/vs/workbench/workbench.desktop.main.js
