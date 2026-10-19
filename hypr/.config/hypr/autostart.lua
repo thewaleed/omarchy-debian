@@ -17,7 +17,7 @@ hl.on("hyprland.start", function()
   -- pywal16: recolor kitty from the wallpaper whenever the background changes.
   hl.exec_cmd(home .. "/.local/bin/wal-sync watch")
 
-  -- VNC server for remote desktop via Cloudflare (desktop.thewaleed.me); localhost only.
+  -- VNC server for remote desktop via Cloudflare tunnel (term.thewaleed.me/desktop/ via websockify + Caddy); localhost only.
   hl.exec_cmd(home .. "/.local/bin/wayvnc-keepalive")
 
   -- Accelerometer rotation now lives in the shell's omarchy.rotation service,

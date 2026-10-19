@@ -1,5 +1,5 @@
 #!/bin/sh
-# Keep wayvnc running for desktop.thewaleed.me: restart it whenever it exits
+# Keep wayvnc running for term.thewaleed.me/desktop/ (via websockify): restart it whenever it exits
 # (e.g. when the output it captures goes away). Exits are logged for debugging.
 LOG="$HOME/.cache/wayvnc.log"
 while true; do
