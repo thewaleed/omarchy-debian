@@ -11,6 +11,10 @@ exec omarchy-launch-floating-terminal-with-presentation '
   echo -e "\e[32mDebian packages\e[0m"
   sudo apt update && sudo apt full-upgrade
   status=$?
+  if (( status == 0 )); then
+    omarchy-update-pkg-prune
+    omarchy-update-orphan-pkgs || true
+  fi
   if command -v flatpak >/dev/null; then
     echo -e "\n\e[32mFlatpak applications\e[0m"
     flatpak update || status=$?

@@ -8,23 +8,14 @@ confirm_reboot() {
   gum confirm "$1" && { omarchy-system-reboot; exit 0; }
 }
 
+# Debian keeps each kernel as /boot/vmlinuz-<version>; one newer than the
+# running kernel is an update waiting on a reboot.
 running_kernel=$(uname -r)
-kernel_updated=true
+newest_kernel=$(printf '%s\n' /boot/vmlinuz-* | sed 's|^/boot/vmlinuz-||' | sort -V | tail -n1)
 
-for kernel in /usr/lib/modules/*/vmlinuz; do
-  if [[ -f $kernel ]] && pacman -Qo "$kernel" &>/dev/null; then
-    installed_kernel=$(basename "$(dirname "$kernel")")
-
-    if [[ $installed_kernel == $running_kernel ]]; then
-      kernel_updated=false
-      break
-    fi
-  fi
-done
-
-if [[ $kernel_updated == "true" ]]; then
+if [[ -f /boot/vmlinuz-$newest_kernel && $newest_kernel != "$running_kernel" ]]; then
   confirm_reboot "Linux kernel has been updated. Reboot?"
-elif [[ -f $HOME/.local/state/omarchy/reboot-required ]]; then
+elif [[ -f $HOME/.local/state/omarchy/reboot-required || -f /run/reboot-required ]]; then
   confirm_reboot "Updates require reboot. Ready?"
 fi
 

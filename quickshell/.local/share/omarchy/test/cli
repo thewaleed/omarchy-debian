@@ -90,22 +90,13 @@ pass "JSON exposes direct pkg add route"
 "$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-install-gaming-xbox-cloud" and .route == "omarchy install gaming xbox-cloud" and .filename_route == "omarchy install gaming xbox cloud" and (.routes | index("omarchy install gaming xbox cloud")))' >/dev/null
 pass "Xbox Cloud installer keeps hyphenated canonical route"
 
-"$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-install-gaming-xbox-controllers" and .route == "omarchy install gaming xbox-controllers" and .filename_route == "omarchy install gaming xbox controllers" and (.routes | index("omarchy install gaming xbox controllers")))' >/dev/null
-pass "Xbox controller installer keeps hyphenated canonical route"
-
-"$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-remove-gaming-xbox-controllers" and .route == "omarchy remove gaming xbox-controllers" and .filename_route == "omarchy remove gaming xbox controllers" and (.routes | index("omarchy remove gaming xbox controllers")))' >/dev/null
-pass "Xbox controller remover keeps hyphenated canonical route"
-
 "$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-install-gaming-geforce-now" and .route == "omarchy install gaming geforce-now" and .filename_route == "omarchy install gaming geforce now" and (.routes | index("omarchy install gaming geforce now")))' >/dev/null
 pass "GeForce NOW installer keeps hyphenated canonical route"
 
 "$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-remove-gaming-geforce-now" and .route == "omarchy remove gaming geforce-now" and .filename_route == "omarchy remove gaming geforce now" and (.routes | index("omarchy remove gaming geforce now")))' >/dev/null
 pass "GeForce NOW remover keeps hyphenated canonical route"
 
-"$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-install-gaming-gpu-lib32" and .route == "omarchy install gaming gpu-lib32" and .filename_route == "omarchy install gaming gpu lib32" and (.routes | index("omarchy install gaming gpu lib32")))' >/dev/null
-pass "GPU lib32 installer keeps hyphenated canonical route"
-
-"$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-refresh-pacman" and .requires_sudo == true)' >/dev/null
+"$CLI" commands --json | jq -e '.commands[] | select(.binary == "omarchy-update-orphan-pkgs" and .requires_sudo == true)' >/dev/null
 pass "sudo metadata marks sudo commands"
 
 output=$("$CLI" theme --help)
@@ -124,7 +115,7 @@ assert_output_contains "bare root command with children renders help" "$output" 
 assert_output_contains "bare toggle help includes child route" "$output" "omarchy toggle nightlight"
 
 output=$("$CLI" pkg --help)
-assert_output_contains "package group includes pkg add fallback route" "$output" "omarchy pkg add <packages...>"
+assert_output_contains "package group includes pkg add fallback route" "$output" "omarchy pkg add <package...>"
 
 output=$("$CLI" restart --help)
 assert_output_contains "restart group includes inferred commands" "$output" "omarchy restart btop"
@@ -193,7 +184,7 @@ if [[ $output == *"omarchy update perform"* ]]; then
 fi
 pass "hidden update perform compatibility wrapper is not shown"
 
-# These three are install-time plumbing the ISO and install leaves call, so
+# This is install-time plumbing the ISO and install leaves call, so
 # they stay out of the listing a user browses -- while still routing, because
 # those callers use the CLI. A GROUP_DESCRIPTIONS entry would put the group
 # back in the top-level listing even with every command in it hidden, which is
@@ -204,7 +195,7 @@ if [[ $output == *"apply"* ]]; then
 fi
 pass "a group whose commands are all hidden stays out of the top-level listing"
 
-for internal in omarchy-apply-system omarchy-apply-hardware omarchy-apply-lock; do
+for internal in omarchy-apply-lock; do
   if "$CLI" commands --json | jq -e --arg binary "$internal" \
     '.commands[] | select(.binary == $binary)' >/dev/null; then
     fail "$internal stays out of the default command listing"
@@ -216,8 +207,8 @@ for internal in omarchy-apply-system omarchy-apply-hardware omarchy-apply-lock; 
 done
 pass "install-time setup plumbing is hidden from the setup wizards"
 
-output=$(timeout 5 "$CLI" apply hardware --help)
-assert_output_contains "hidden setup plumbing still routes" "$output" "omarchy-apply-hardware"
+output=$(timeout 5 "$CLI" apply lock --help)
+assert_output_contains "hidden setup plumbing still routes" "$output" "omarchy-apply-lock"
 
 output=$("$CLI" screenshot --help)
 assert_output_contains "root alias resolves to command help" "$output" "omarchy-capture-screenshot"
@@ -227,7 +218,7 @@ pass "aliases are included in JSON metadata"
 
 output=$("$CLI" pkg add --help)
 assert_output_contains "pkg add help resolves" "$output" "omarchy-pkg-add"
-assert_output_contains "pkg add help shows direct route" "$output" "omarchy pkg add <packages...>"
+assert_output_contains "pkg add help shows direct route" "$output" "omarchy pkg add <package...>"
 
 output=$("$CLI" system reboot --help)
 assert_output_contains "system command help is safe" "$output" "omarchy-system-reboot"
@@ -424,7 +415,7 @@ if rg -q '\{\{[^}]+\}\}' "$LEGACY_NEXT_THEME"; then
 fi
 pass "legacy short palette renders the complete generated theme"
 
-osc_summary=$("$ROOT/bin/omarchy-theme-osc" "$NEXT_THEME/colors.toml" | python -c 'import sys; data = sys.stdin.buffer.read(); print(data.count(b"]4;"), b"]4;1;#ff0000" in data, b"]4;7;#ffffff" in data, b"]4;15;#eeeeee" in data, b"]12;#eeeeee" in data, b"]17;#808080" in data, b"]19;#eeeeee" in data)')
+osc_summary=$("$ROOT/bin/omarchy-theme-osc" "$NEXT_THEME/colors.toml" | python3 -c 'import sys; data = sys.stdin.buffer.read(); print(data.count(b"]4;"), b"]4;1;#ff0000" in data, b"]4;7;#ffffff" in data, b"]4;15;#eeeeee" in data, b"]12;#eeeeee" in data, b"]17;#808080" in data, b"]19;#eeeeee" in data)')
 [[ $osc_summary == "16 True True True True True True" ]] || fail "theme OSC aliases semantic colors to ANSI palette"
 pass "theme OSC aliases semantic colors to ANSI palette"
 

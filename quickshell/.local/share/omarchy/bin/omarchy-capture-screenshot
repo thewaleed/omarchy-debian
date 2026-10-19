@@ -16,7 +16,7 @@ fi
 
 pkill slurp && exit 0
 
-SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-omarchy-screenshot-edit}"
+SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-omarchy-capture-screenshot-edit}"
 
 # Parse --editor flag from any position
 ARGS=()

@@ -22,34 +22,9 @@ OUTPUT = ROOT / "quickshell/.config/omarchy/extensions/omarchy-menu.jsonc"
 
 PRESENT = "omarchy-launch-floating-terminal-with-presentation"
 
-# Rows that have no Debian equivalent, would damage this setup, or depend on
-# checkpoints that are not finished yet. Hiding a submenu's every row hides it.
-HIDDEN = {
-    "learn": "removed at the user's request",
-    "trigger.hardware.hybrid-gpu": "Arch supergfxctl integration",
-    "trigger.toggle.crash-capture": "crash watcher service is not installed",
-    "trigger.capture.screenrecord.webcam": "webcam overlay not ported to wf-recorder",
-    "trigger.toggle.idle-lock": "no-op while the lock plugin is disabled (lock/idle checkpoint)",
-    "setup.config.xcompose": "fcitx5 is not installed, so there is nothing to restart",
-    "setup.security.passwordless-sudo": "sudo is already passwordless via /etc/sudoers.d/99-thewaleed",
-    "style.unlock": "Plymouth is not used on this system",
-    "setup.direct-boot": "Arch Limine/UKI boot setup",
-    "setup.reset": "Arch factory reset",
-    "setup.security.fingerprint": "no fingerprint reader",
-    "setup.default.browser.brave-origin": "no Debian source",
-    "setup.default.terminal.ghostty": "no Debian source",
-    "setup.default.editor.cursor": "no Debian source",
-    "setup.default.editor.helix": "no Debian source",
-    "update.channel": "Omarchy release channels are Arch-only",
-    "update.config.hyprland": "would overwrite the Stow-managed ~/.config/hypr",
-    "update.config.shell": "would reset shell.json and re-enable lock/idle",
-    "update.config.plymouth": "Plymouth is not used on this system",
-    "install.aur": "Arch User Repository",
-    "install.windows": "Arch Windows VM helper",
-    "install.preinstalls": "Arch preinstall bundle",
-    "remove.windows": "Arch Windows VM helper",
-    "remove.preinstalls": "Arch preinstall bundle",
-}
+# Nothing is hidden: rows with no Debian equivalent are deleted from the
+# vendored default/omarchy/omarchy-menu.jsonc, and an Install/Remove row left
+# without a catalog source is an error (see main), not a silently hidden row.
 
 # Upstream Install/Remove rows kept as they are (they work on Debian).
 KEEP = {
@@ -59,9 +34,12 @@ KEEP = {
     "install.gaming.retro-launcher", "install.development.docker-dbs",
     "remove.package", "remove.theme", "remove.webapp", "remove.tui",
     "remove.security", "remove.security.fido2", "remove.security.sshd",
-    "remove.security.sudoless-docker", "remove.security.fingerprint",
+    "remove.security.sudoless-docker",
     "remove.gaming.geforce-now", "remove.gaming.xbox-cloud",
 }
+
+# Agents omarchy-default-agent installs through the catalog when missing.
+AGENTS_WITH_INSTALLER = {"claude", "opencode", "hermes"}
 
 # Overrides applied after the catalog wiring.
 OVERRIDES = {
@@ -149,20 +127,23 @@ def main():
         if note:
             notes[item_id] = note
 
-    for item_id, reason in HIDDEN.items():
-        put(item_id, {"when": "false"}, reason)
-
-    # Install/Remove: wire catalog apps, hide everything else without a source.
+    # Install/Remove: every upstream row must be kept as-is or have a catalog
+    # source. Delete a row from the default menu rather than hiding it.
+    missing = []
     for item_id, item in menu.items():
         section, _, rest = item_id.partition(".")
         if section not in ("install", "remove") or not rest:
             continue
-        if item_id in KEEP or item_id in HIDDEN or item_id.startswith("install.style.font."):
+        if item_id in KEEP or item_id.startswith("install.style.font."):
             continue
         if "action" not in item and "provider" not in item:
-            continue  # submenu: disappears when all of its rows are hidden
+            continue  # submenu
         if rest not in catalog:
-            put(item_id, {"when": "false"}, "no Debian source")
+            missing.append(item_id)
+    if missing:
+        sys.exit("no Debian source for: " + ", ".join(missing)
+                 + "\nadd them to default/omarchy/debian-apps.conf or delete them from "
+                 + "default/omarchy/omarchy-menu.jsonc")
 
     for app_id, entry in catalog.items():
         guard = presence(app_id, entry)
@@ -193,12 +174,17 @@ def main():
         source = menu["install." + item_id.split(".", 1)[1]]
         put(item_id, {k: source[k] for k in ("icon", "iconFont", "label") if k in source})
 
-    # Default agents: only offer agents that are already installed (upstream
-    # installs them with mise, which Debian does not ship).
+    # Default agents: upstream installs them with mise, which Debian does not
+    # ship, so an agent shows once it is installed -- unless omarchy-default-agent
+    # can install it from the catalog (claude, opencode, hermes).
     for item_id, item in menu.items():
         if item_id.startswith("setup.default.agent.") and "action" in item:
             agent = item["action"].split()[-1]
-            put(item_id, {"when": f"omarchy-cmd-present {agent}"})
+            if agent in AGENTS_WITH_INSTALLER:
+                out.get(item_id, {}).pop("when", None)
+                menu[item_id].pop("when", None)
+            else:
+                put(item_id, {"when": f"omarchy-cmd-present {agent}"})
 
     for item_id, item in menu.items():
         if item_id.startswith("install.style.font.") and "action" in item:
@@ -221,8 +207,8 @@ def main():
         "  // GENERATED by ~/dotfils/tools/generate-debian-menu.py; edit that script",
         "  // or default/omarchy/debian-apps.conf, then re-run it.",
         "  //",
-        "  // Debian overlay for the Omarchy menu: hides Arch-only rows, routes",
-        "  // Install/Remove through omarchy-debian-app, and adds Debian entries.",
+        "  // Debian overlay for the Omarchy menu: routes Install/Remove through",
+        "  // omarchy-debian-app and adds Debian entries.",
     ]
     for item_id in sorted(out, key=lambda k: (k.split(".")[0], k)):
         if item_id in notes:

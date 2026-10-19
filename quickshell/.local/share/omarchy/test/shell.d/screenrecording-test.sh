@@ -124,49 +124,6 @@ else
   pass "webcam hardware detection fails when no video device is available"
 fi
 
-if OMARCHY_TEST_RAW_WEBCAM=true "$ROOT/bin/omarchy-capture-screenrecording-with-webcam"; then
-  fail "screenrecording webcam picker rejects output-only video devices"
-fi
-grep -Fx 'No webcam devices found' "$OMARCHY_TEST_NOTIFICATION_ARGS" >/dev/null || \
-  fail "screenrecording webcam picker reports no capture-capable device"
-pass "screenrecording webcam picker rejects output-only video devices"
-
-"$ROOT/bin/omarchy-capture-screenrecording-with-webcam"
-
-expected_menu_args="$tmp_dir/expected-menu-args"
-printf '%s\n' \
-  "Select Webcam" \
-  "/dev/video42  Built-in Webcam: Integrated Camera" \
-  "/dev/video2  USB Capture Card: External Camera" \
-  "--" \
-  "--width" \
-  "520" \
-  "--maxheight" \
-  "520" >"$expected_menu_args"
-
-if ! cmp -s "$OMARCHY_TEST_MENU_ARGS" "$expected_menu_args"; then
-  fail "screenrecording webcam picker passes each webcam as a menu option" "$(diff -u "$expected_menu_args" "$OMARCHY_TEST_MENU_ARGS")"
-fi
-pass "screenrecording webcam picker passes each webcam as a menu option"
-
-expected_recorder_args="$tmp_dir/expected-recorder-args"
-printf '%s\n' \
-  "--with-desktop-audio" \
-  "--with-microphone-audio" \
-  "--with-webcam" \
-  "--webcam-device=/dev/video2" >"$expected_recorder_args"
-
-if ! cmp -s "$OMARCHY_TEST_RECORDER_ARGS" "$expected_recorder_args"; then
-  fail "screenrecording webcam picker starts recording with selected device" "$(diff -u "$expected_recorder_args" "$OMARCHY_TEST_RECORDER_ARGS")"
-fi
-pass "screenrecording webcam picker starts recording with selected device"
-
-first_webcam=$(omarchy-capture-webcam-list | sed -n '1s/[[:space:]].*//p')
-[[ $first_webcam == "/dev/video42" ]] || fail "screenrecording auto-detection selects the first capture device"
-grep -F 'WEBCAM_DEVICE=$(omarchy-capture-webcam-list' "$ROOT/bin/omarchy-capture-screenrecording" >/dev/null || \
-  fail "screenrecording auto-detection uses capture-capable webcams"
-pass "screenrecording auto-detection uses the first capture-capable webcam"
-
 cat >"$stub_bin/hyprctl" <<'SH'
 #!/bin/bash
 

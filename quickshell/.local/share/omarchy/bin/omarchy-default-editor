@@ -42,6 +42,8 @@ if omarchy-cmd-missing "$editor"; then
   else
     case "$selection" in
     code) omarchy-debian-app install editor.vscode ;;
+    cursor) omarchy-debian-app install editor.cursor ;;
+    helix) omarchy-debian-app install editor.helix ;;
     zed) omarchy-debian-app install editor.zed ;;
     sublime_text) omarchy-debian-app install editor.sublime ;;
     vim) omarchy-debian-app install editor.vim ;;

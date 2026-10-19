@@ -37,7 +37,10 @@ require("default.hypr.windows")
 require("default.hypr.bindings.tiling")
 require("default.hypr.bindings.media")
 require("default.hypr.bindings.clipboard")
--- Upstream utilities/applications/voxtype bindings are replaced by the curated
+-- Dictation keys (F9 push-to-talk, SUPER+CTRL+X toggle); they bind only once
+-- Install > AI > Dictation has put voxtype on PATH.
+require("default.hypr.bindings.voxtype")
+-- Upstream utilities/applications bindings are replaced by the curated
 -- hypr.bindings module: they assume UWSM, lock/idle, and preinstalled apps.
 
 require_optional.module("omarchy.current.theme.hyprland")

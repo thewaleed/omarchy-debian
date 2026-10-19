@@ -57,6 +57,8 @@ repo_files() {
   tailscale) echo /etc/apt/sources.list.d/tailscale.list /usr/share/keyrings/tailscale-archive-keyring.gpg ;;
   nordvpn) echo /etc/apt/sources.list.d/nordvpn.list /usr/share/keyrings/nordvpn-keyring.gpg ;;
   antigravity) echo /etc/apt/sources.list.d/antigravity.list /etc/apt/keyrings/antigravity-repo-key.gpg ;;
+  microsoft) echo /etc/apt/sources.list.d/microsoft-prod.list /usr/share/keyrings/microsoft-prod.gpg ;;
+  symfony) echo /etc/apt/sources.list.d/symfony-stable.list /usr/share/keyrings/symfony-stable-archive-keyring.gpg ;;
   *) echo "omarchy-debian-app: unknown repository '$1'" >&2; return 1 ;;
   esac
 }
@@ -90,6 +92,19 @@ Signed-By: /etc/apt/keyrings/sublimehq-pub.asc"
     fetch_key https://repo.nordvpn.com/gpg/nordvpn_public.asc /usr/share/keyrings/nordvpn-keyring.gpg dearmor
     write_list /etc/apt/sources.list.d/nordvpn.list \
       "deb [signed-by=/usr/share/keyrings/nordvpn-keyring.gpg] https://repo.nordvpn.com/deb/nordvpn/debian stable main"
+    ;;
+  microsoft)
+    # Same paths as Microsoft's packages-microsoft-prod.deb for Debian 13
+    # (https://learn.microsoft.com/dotnet/core/install/linux-debian).
+    fetch_key https://packages.microsoft.com/keys/microsoft.asc /usr/share/keyrings/microsoft-prod.gpg dearmor
+    write_list /etc/apt/sources.list.d/microsoft-prod.list \
+      "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/13/prod trixie main"
+    ;;
+  symfony)
+    # Same paths as the setup.deb.sh linked from https://symfony.com/download.
+    fetch_key https://dl.cloudsmith.io/public/symfony/stable/gpg.99CEF8A62216B73D.key /usr/share/keyrings/symfony-stable-archive-keyring.gpg dearmor
+    write_list /etc/apt/sources.list.d/symfony-stable.list \
+      "deb [signed-by=/usr/share/keyrings/symfony-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/symfony/stable/deb/debian trixie main"
     ;;
   antigravity)
     # Google's Antigravity IDE (https://antigravity.google/download/linux/).
@@ -185,6 +200,59 @@ remove_ai_herdr() {
   rm -f "$HOME/.local/bin/herdr"
 }
 
+# Vendor .deb attached to a project's latest GitHub release.
+install_github_deb() { # owner/repo asset-name-regex
+  local url dir
+  url=$(curl -fsSL "https://api.github.com/repos/$1/releases/latest" |
+    jq -r --arg re "$2" '[.assets[] | select(.name | test($re)) | .browser_download_url][0] // empty')
+  if [[ -z $url ]]; then
+    echo "omarchy-debian-app: no release asset in $1 matches $2" >&2
+    return 1
+  fi
+  dir=$(mktemp -d)
+  curl -fL --progress-bar "$url" -o "$dir/package.deb"
+  # The _apt user must be able to read the file to install it.
+  chmod 0755 "$dir"
+  sudo apt-get install -y "$dir/package.deb"
+  rm -rf "$dir"
+}
+
+# Voxtype dictation (https://github.com/peteonrails/voxtype). The Hyprland
+# bindings and the bar indicator switch on by themselves once voxtype exists.
+install_ai_dictation() {
+  sudo apt-get install -y wtype
+  install_github_deb peteonrails/voxtype '_amd64\.deb$'
+  mkdir -p "$HOME/.config/voxtype"
+  cp "$(dirname "$CATALOG")/../voxtype/config.toml" "$HOME/.config/voxtype/"
+  voxtype setup --download --no-post-install
+  if omarchy-hw-vulkan; then
+    voxtype setup gpu --enable || true
+  fi
+  voxtype setup systemd
+  hyprctl reload >/dev/null
+  omarchy-restart-shell
+  omarchy-notification-send "Voxtype Dictation Ready" "Hold F9 to dictate (or toggle with Super + Ctrl + X)." -t 10000
+}
+remove_ai_dictation() {
+  systemctl --user disable --now voxtype.service 2>/dev/null || true
+  systemctl --user daemon-reload
+  sudo apt-get remove -y voxtype
+  rm -rf "$HOME/.config/voxtype" "$HOME/.local/share/voxtype"
+  hyprctl reload >/dev/null
+}
+
+# T3 Code (https://t3.codes). omarchy-theme-set-t3code only themes an existing
+# state dir, so create it before the first theme pass.
+install_ai_t3_code() {
+  install_github_deb pingdotgg/t3code '^T3-Code-.*-amd64\.deb$'
+  mkdir -p "${T3CODE_HOME:-$HOME/.t3}/userdata"
+  [[ -f $HOME/.local/state/omarchy/current/theme/t3code.json ]] || omarchy-theme-refresh
+  omarchy-theme-set-t3code
+}
+remove_ai_t3_code() {
+  sudo apt-get remove -y t3code
+}
+
 custom_present() {
   case $id in
   ai.herdr) command -v herdr >/dev/null ;;
@@ -261,6 +329,11 @@ post_install() {
     mkdir -p "$HOME/.local/bin"
     ln -sf /opt/sublime_text/sublime_text "$HOME/.local/bin/sublime_text"
     ;;
+  editor.helix)
+    # Debian ships Helix as `hx`; Omarchy's default-editor helper uses `helix`.
+    mkdir -p "$HOME/.local/bin"
+    ln -sf /usr/bin/hx "$HOME/.local/bin/helix"
+    ;;
   esac
 }
 
@@ -288,6 +361,7 @@ remove() {
   case $id in
   editor.zed) rm -f "$HOME/.local/bin/zeditor" ;;
   editor.sublime) rm -f "$HOME/.local/bin/sublime_text" ;;
+  editor.helix) rm -f "$HOME/.local/bin/helix" ;;
   esac
   step "$label removed."
 }

@@ -16,6 +16,7 @@ RUNTIME = ROOT / "quickshell/.local/share/omarchy"
 OVERLAY = ROOT / "quickshell/.config/omarchy/extensions/omarchy-menu.jsonc"
 GENERATOR = ROOT / "tools/generate-debian-menu.py"
 CATALOG = RUNTIME / "default/omarchy/debian-apps.conf"
+DEFAULT_MENU = RUNTIME / "default/omarchy/omarchy-menu.jsonc"
 
 
 def load_jsonc(path):
@@ -43,22 +44,37 @@ class DebianMenuTests(unittest.TestCase):
                 for key, value in default[item_id].items():
                     self.assertIn(key, fields, f"{item_id} drops {key}")
 
-    def test_learn_and_arch_only_rows_are_hidden(self):
-        overlay = load_jsonc(OVERLAY)
+    def test_nothing_is_hidden(self):
+        # Rows that cannot work on Debian are deleted, never parked behind
+        # `when: false`.
+        for path in (DEFAULT_MENU, OVERLAY):
+            for item_id, fields in load_jsonc(path).items():
+                self.assertNotEqual(fields.get("when"), "false", f"{path.name}: {item_id}")
+
+    def test_arch_only_rows_are_deleted(self):
+        rows = {**load_jsonc(DEFAULT_MENU), **load_jsonc(OVERLAY)}
         for item_id in ("learn", "install.aur", "update.channel", "update.config.hyprland",
-                        "update.config.shell", "setup.reset"):
-            self.assertEqual(overlay[item_id]["when"], "false", item_id)
+                        "update.config.shell", "update.config.plymouth", "setup.reset",
+                        "setup.direct-boot", "style.unlock", "install.windows",
+                        "trigger.toggle.idle-lock", "setup.config.xcompose",
+                        "setup.security.passwordless-sudo"):
+            self.assertNotIn(item_id, rows)
 
     def test_system_lock_is_shown(self):
         overlay = load_jsonc(OVERLAY)
         self.assertNotEqual(overlay.get("system.lock", {}).get("when"), "false")
 
-    def test_rows_without_a_working_debian_backend_are_hidden(self):
+    def test_docker_rows_wait_for_docker(self):
         overlay = load_jsonc(OVERLAY)
-        for item_id in ("trigger.toggle.idle-lock", "setup.config.xcompose",
-                        "setup.security.passwordless-sudo"):
-            self.assertEqual(overlay[item_id]["when"], "false", item_id)
         self.assertIn("omarchy-cmd-present docker", overlay["setup.security.sudoless-docker"]["when"])
+
+    def test_default_menu_helpers_exist(self):
+        text = DEFAULT_MENU.read_text()
+        commands = {path.name for path in (RUNTIME / "bin").iterdir()}
+        for helper in sorted(set(re.findall(r"\b(omarchy-[a-z0-9-]+)", text))):
+            # A guard may grep for a family prefix, e.g. omarchy-webapp-handler(-hey).
+            family = any(name.startswith(helper + "-") for name in commands)
+            self.assertTrue(helper in commands or family, helper)
 
     def test_every_catalog_app_has_install_and_remove_rows(self):
         overlay = load_jsonc(OVERLAY)

@@ -37,7 +37,7 @@ pass "1Password launcher starts the installed app at a fixed scale factor"
 
 PATH="$mock_bin:$PATH" OMARCHY_TEST_INSTALLED=false OMARCHY_TEST_LOG="$launch_log" \
   bash "$ROOT/bin/omarchy-launch-1password"
-grep -Fxq 'install:omarchy-install-service-1password' "$launch_log" ||
+grep -Fxq 'install:omarchy-debian-app install service.1password' "$launch_log" ||
   fail "1Password launcher starts the installer when missing"
 pass "1Password launcher starts the installer when missing"
 

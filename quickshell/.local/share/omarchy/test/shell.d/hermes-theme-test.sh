@@ -4,7 +4,7 @@ set -euo pipefail
 
 # omarchy-theme-set-hermes writes a file another program parses and asks that
 # program to switch to it while it is still on its default. Both are exercised
-# here against a throwaway HOME with the Hermes readiness probe, the hermes
+# here against a throwaway HOME with ~/.local/bin/hermes, the hermes
 # command and the theme refresh stubbed, so a skin that stopped being
 # validated, a write into a Hermes that was never set up, or an activation
 # that trampled a chosen skin shows up in what landed on disk and what was run.
@@ -16,12 +16,6 @@ trap 'rm -rf "$test_tmp"' EXIT
 
 mock_bin="$test_tmp/bin"
 mkdir -p "$mock_bin"
-
-cat >"$mock_bin/omarchy-install-hermes-cli" <<'SH'
-#!/bin/bash
-echo "check" >>"$OMARCHY_TEST_HERMES_CALLS"
-[[ $1 == "--check" && ${OMARCHY_TEST_HERMES_READY:-0} == "1" ]]
-SH
 
 # A theme switch finishes the hand-over only for the desktop app Omarchy
 # installed; --activate is asked for by name and does not look.
@@ -110,6 +104,10 @@ reset_home() {
 }
 
 run_hook() {
+  # Debian port: Hermes is ready when the uv-installed ~/.local/bin/hermes exists.
+  if [[ ${OMARCHY_TEST_HERMES_READY:-0} != "1" ]]; then
+    rm -f "$test_home/.local/bin/hermes"
+  fi
   OMARCHY_TEST_HERMES_READY="${OMARCHY_TEST_HERMES_READY:-0}" \
     OMARCHY_TEST_HERMES_SKIN="${OMARCHY_TEST_HERMES_SKIN-default}" \
     OMARCHY_TEST_HERMES_GET_FAILS="${OMARCHY_TEST_HERMES_GET_FAILS:-0}" \
@@ -140,7 +138,7 @@ diff -q "$test_home/.local/state/omarchy/current/theme/hermes.yaml" "$skin" >/de
 diff -q "$skin" "$hermes_home/profiles/work/skins/omarchy.yaml" >/dev/null ||
   fail "an existing Hermes profile gets the skin too"
 [[ $(ls "$hermes_home/skins") == "omarchy.yaml" ]] || fail "no temporary file is left beside the skin"
-[[ $(cat "$hermes_calls") == "check" ]] || fail "a Hermes that is not ready is asked nothing more" "$(cat "$hermes_calls")"
+[[ ! -s $hermes_calls ]] || fail "a Hermes that is not ready is asked nothing more" "$(cat "$hermes_calls")"
 [[ ! -s $test_tmp/stderr ]] || fail "a theme switch says nothing about Hermes" "$(cat "$test_tmp/stderr")"
 pass "the skin is published to the Hermes home and every profile"
 
@@ -202,7 +200,7 @@ pass "a well-formed skin with comments and blank lines is published"
 
 reset_home --set-up
 OMARCHY_TEST_HERMES_READY=1 run_hook 2>"$test_tmp/stderr"
-[[ $(cat "$hermes_calls") == $'check\nconfig get display.skin\nconfig set display.skin omarchy' ]] ||
+[[ $(cat "$hermes_calls") == $'config get display.skin\nconfig set display.skin omarchy' ]] ||
   fail "a ready Hermes still on its default is switched by a theme switch" "$(cat "$hermes_calls")"
 [[ ! -s $test_tmp/stderr ]] || fail "a theme switch activates quietly" "$(cat "$test_tmp/stderr")"
 pass "a theme switch activates the skin on a Hermes still on its default"
@@ -294,13 +292,13 @@ pass "--activate waits for Hermes to have been set up"
 reset_home --set-up
 run_hook --activate 2>"$test_tmp/stderr"
 [[ -f $skin ]] || fail "--activate publishes the skin when Hermes is not ready"
-[[ $(cat "$hermes_calls") == "check" ]] || fail "a Hermes that is not ready is not run" "$(cat "$hermes_calls")"
+[[ ! -s $hermes_calls ]] || fail "a Hermes that is not ready is not run" "$(cat "$hermes_calls")"
 grep -q 'hermes config set display.skin omarchy' "$test_tmp/stderr" || fail "an unready Hermes gets the command that finishes the job"
 pass "--activate publishes but does not run a Hermes that is not ready"
 
 reset_home --set-up
 OMARCHY_TEST_HERMES_READY=1 run_hook --activate 2>"$test_tmp/stderr"
-[[ $(cat "$hermes_calls") == $'check\nconfig get display.skin\nconfig set display.skin omarchy' ]] ||
+[[ $(cat "$hermes_calls") == $'config get display.skin\nconfig set display.skin omarchy' ]] ||
   fail "a ready Hermes is asked for its skin and then to switch" "$(cat "$hermes_calls")"
 grep -q 'on the Omarchy skin' "$test_tmp/stderr" || fail "--activate reports success"
 pass "--activate goes through hermes config set when Hermes runs"
@@ -372,7 +370,7 @@ reset_home --set-up
 mkdir -p "$hermes_home/hermes-agent"
 touch "$hermes_home/hermes-agent/.hermes-bootstrap-complete"
 OMARCHY_TEST_HERMES_READY=1 run_hook --wait 2>/dev/null
-[[ $(cat "$hermes_calls") == $'check\nconfig get display.skin\nconfig set display.skin omarchy\nsleep 60' ]] ||
+[[ $(cat "$hermes_calls") == $'config get display.skin\nconfig set display.skin omarchy\nsleep 60' ]] ||
   fail "--wait activates as soon as the runtime marker is there, then republishes after the gateway is up" "$(cat "$hermes_calls")"
 [[ -f $skin ]] || fail "--wait publishes the skin"
 pass "--wait activates once the desktop app has built its runtime"

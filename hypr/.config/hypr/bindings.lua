@@ -5,7 +5,8 @@
 --
 -- Deliberately omitted until their checkpoints land (see ~/dotfils/QUICKSHELL.md):
 --   SUPER+L and XF86Lock locking, lid-switch lock,
---   keybinding viewer, agents/dictation, webapps, and apps that are not installed.
+--   keybinding viewer, agents, webapps, and apps that are not installed.
+-- Dictation keys come from default.hypr.bindings.voxtype (see hyprland.lua).
 
 local paths = require("default.hypr.paths")
 

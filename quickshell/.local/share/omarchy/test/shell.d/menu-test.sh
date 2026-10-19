@@ -185,12 +185,8 @@ assertEqual(
   'menu opens the emoji picker from Trigger'
 )
 assert(
-  defaultById['update.omarchy'].icon === '\ue900',
-  'menu update Omarchy entry uses the Omarchy glyph'
-)
-assert(
-  defaultById['update.omarchy'].iconFont === 'omarchy',
-  'menu update Omarchy entry renders the private glyph with the Omarchy font'
+  defaultById['update.omarchy'].action === 'omarchy-debian-update',
+  'menu Update > System runs the Debian APT and Flatpak update'
 )
 assertEqual(
   defaultById['update.themes'].when,
@@ -200,20 +196,6 @@ assertEqual(
 assert(
   defaultById['setup.input'].action.includes('input.lua'),
   'menu keeps Input as a direct config action'
-)
-assert(
-  defaultById['setup.direct-boot'].action.includes('omarchy-setup-direct-boot'),
-  'menu places Direct Boot directly under Setup'
-)
-assert(
-  defaultById['setup.reset'].action.includes('omarchy-system-factory-reset'),
-  'menu exposes Reset Computer under Setup'
-)
-const setupEntries = defaultItems.filter(item => item.parent === 'setup')
-assertEqual(
-  setupEntries[setupEntries.length - 1].id,
-  'setup.reset',
-  'menu lists Reset Computer last under Setup'
 )
 const expectedAgents = {
   agy: { icon: '󰫢', label: 'Antigravity' },
@@ -240,7 +222,10 @@ assert(
       && entry.iconFont === (expected.iconFont || '')
       && entry.label === expected.label
       && entry.action === `omarchy-default-agent ${agent}`
-      && !entry.when
+      // Debian port: agents without a catalog installer show once installed.
+      && (['claude', 'opencode', 'hermes'].includes(agent)
+        ? !entry.when
+        : entry.when === `omarchy-cmd-present ${agent}`)
       && entry.checked.includes(`== \"${agent}\"`)
   }),
   'menu exposes every supported coding agent with its own glyph under Defaults > Agent'
@@ -253,8 +238,8 @@ assertDeepEqual(
   'menu sorts coding agents alphabetically'
 )
 const expectedDefaults = {
-  browser: ['Chromium', 'Chrome', 'Brave', 'Brave Origin', 'Edge', 'Firefox', 'Zen'],
-  terminal: ['Alacritty', 'Foot', 'Ghostty', 'Kitty'],
+  browser: ['Chromium', 'Chrome', 'Brave', 'Edge', 'Firefox', 'Zen'],
+  terminal: ['Alacritty', 'Foot', 'Kitty'],
   editor: ['Neovim', 'VSCode', 'Cursor', 'Zed', 'Sublime Text', 'Helix', 'Vim', 'Emacs']
 }
 assert(
@@ -274,30 +259,24 @@ assertDeepEqual(
   defaultItems
     .filter(item => item.id.startsWith('install.') && item.action && item.when)
     .map(item => item.id),
-  ['install.service.chromium-account'],
+  // These wait for a prerequisite (RetroArch, Docker), not for being absent.
+  ['install.gaming.retro-launcher', 'install.development.docker-dbs'],
   'menu never hides an Install row because the software is already there'
 )
 assert(
-  ['install.browser.zen', 'install.editor.vscode', 'install.gaming.steam', 'install.development.rust', 'install.windows'].every(
+  ['install.browser.zen', 'install.editor.vscode', 'install.gaming.steam', 'install.development.rust'].every(
     id => defaultById[id].disabled && !defaultById[id].when
   ),
   'menu dims the Install rows for software that is already installed'
 )
 assertEqual(
   defaultById['install.browser.zen'].disabled,
-  'omarchy-pkg-present zen-browser-bin',
+  'omarchy-pkg-present app.zen_browser.zen',
   'menu asks the same presence question it used to hide the row with'
-)
-// A guard can still be about something other than having the software: no
-// Chromium at all means no account to wire up, and that row stays hidden.
-assert(
-  defaultById['install.service.chromium-account'].when === '[[ -f ~/.config/chromium-flags.conf ]]'
-    && defaultById['install.service.chromium-account'].disabled.includes('oauth2-client-id'),
-  'menu keeps hiding Chromium Account without Chromium, and dims it once the account is set up'
 )
 assert(
   defaultItems.filter(item => item.id.startsWith('remove.')).every(item => !item.disabled)
-    && defaultById['remove.browser.zen'].when === 'omarchy-pkg-present zen-browser-bin',
+    && defaultById['remove.browser.zen'].when === 'omarchy-pkg-present app.zen_browser.zen',
   'menu still hides Remove rows for software that is not installed'
 )
 assertDeepEqual(
@@ -314,15 +293,9 @@ assertDeepEqual(
     'remove.browser',
     'remove.webapp',
     'remove.tui',
-    'remove.windows',
-    'remove.preinstalls',
     'remove.security'
   ],
   'menu orders Remove categories like their Install counterparts, followed by Remove-only categories'
-)
-assert(
-  defaultById['setup.security.passwordless-sudo'].action.includes('omarchy-sudo-passwordless'),
-  'menu places Passwordless Sudo under Setup > Security'
 )
 assert(
   !defaultById['trigger.toggle.direct-boot'] && !defaultById['trigger.toggle.passwordless-sudo'],
@@ -439,13 +412,8 @@ assertEqual(
   'menu only shows Mirror Display on laptops'
 )
 assertEqual(
-  defaultById['trigger.capture.screenrecord.webcam'].when,
-  'false',
-  'menu hides webcam screen recording, which wf-recorder cannot overlay'
-)
-assertEqual(
   defaultById['trigger.capture.screenrecord.stop'].when,
-  "pgrep -f '^(gpu-screen-recorder|wf-recorder)'",
+  "pgrep -f '^wf-recorder'",
   'menu offers Stop Screenrecording while wf-recorder runs'
 )
 assert(
