@@ -18,7 +18,8 @@ hl.on("hyprland.start", function()
   hl.exec_cmd(home .. "/.local/bin/wal-sync watch")
 
   -- VNC server for remote desktop via Cloudflare tunnel (term.thewaleed.me/desktop/ via websockify + Caddy); localhost only.
-  hl.exec_cmd(home .. "/.local/bin/wayvnc-keepalive")
+  -- Disabled: keep wayvnc off across login and reboot.
+  -- hl.exec_cmd(home .. "/.local/bin/wayvnc-keepalive")
 
   -- Accelerometer rotation now lives in the shell's omarchy.rotation service,
   -- which the bar's rotation lock indicator controls.
