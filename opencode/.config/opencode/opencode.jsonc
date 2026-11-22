@@ -1,0 +1,716 @@
+// OpenCode V2 configuration cookbook.
+// Source: ~/dotfils/opencode/.config/opencode/opencode.jsonc
+// Installed by GNU Stow at ~/.config/opencode/opencode.jsonc.
+// Reference: https://opencode.ai/v2/docs/config/
+//
+// HOW TO USE
+// - Your existing settings stay active; every new example is commented out.
+// - Remove ONE leading // from the code between an EXAMPLE and END EXAMPLE.
+//   Leave the headings/explanations commented. Enable only what you need.
+// - Replace example paths, URLs, model IDs, and environment variable names.
+// - Merge into an existing object/array instead of creating duplicate keys.
+// - These values are examples, not a claim that every value is a default.
+// - JSONC supports comments and trailing commas. Keep the schema for autocomplete.
+// - Never commit API keys, passwords, OAuth tokens, or private credentials.
+// - {env:NAME} reads the SERVER's environment; an unset variable becomes "".
+//   Shell expressions such as $NAME do not expand in JSON strings.
+// - {file:~/.secrets/openai-key} can read a separate credential file instead.
+//   Keep that file private and outside this repository. Missing files become "".
+// - Project configs can override ordinary global settings; policies differ.
+// - Themes, keybindings, and other terminal preferences belong in cli.json,
+//   NOT this file. See the separate-settings notes at the end.
+
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ========================================================================
+  // 01. DEFAULT MODEL, AGENT, SHELL, UPDATES, AND USERNAME
+  // https://opencode.ai/v2/docs/models/
+  // https://opencode.ai/v2/docs/config/
+  // Use /connect to connect a provider and /models to find exact model IDs.
+  // A session's selected model takes precedence over the configured default.
+  // Root model does not retain #variant; agents/commands can select variants.
+  // default_agent affects sessions without an explicit agent selection.
+  // update is global-only: "disable", "notify" (default), or "auto".
+  // username is accepted but is not displayed in conversations.
+  // ========================================================================
+  // EXAMPLE: general
+  // "model": "openai/gpt-6.1-sol",
+  // "default_agent": "build",
+  // "shell": "/bin/bash",
+  // "update": "notify",
+  // "username": "thewaleed",
+  // END EXAMPLE
+
+  // ========================================================================
+  // 02. PROVIDERS, MODEL OVERRIDES, ALIASES, AND REASONING VARIANTS
+  // https://opencode.ai/v2/docs/providers/
+  // https://opencode.ai/v2/docs/models/
+  // Existing empty compatibility entry is preserved; NEW entries use providers.
+  // ========================================================================
+  "provider": {},
+
+  // All providers below are independent recipes; keep only the ones you use.
+  // Prefer /connect for OAuth/ChatGPT accounts; omit apiKey for those accounts.
+  // Provider -> model -> variant settings/headers/body apply in that order.
+  // settings are package-specific; do not copy OpenAI options to other APIs.
+  // HTTP timeouts below are milliseconds and are provider-wide, not per model.
+  // headerTimeout/chunkTimeout/timeout also accept false to disable a limit.
+  // transport: "http" or "websocket" (only supported routes use WebSockets).
+  // encoding: "none", "gzip", or "zstd"; only compress if the endpoint allows it.
+  // Model metadata/limits must match the real model; these alias limits are samples.
+  // Model disabled: true hides that model. Variant IDs must exist when selected.
+  // Additional model metadata includes family, releaseDate, package, and cost;
+  // use the current docs/editor schema rather than inventing capabilities/prices.
+  // EXAMPLE: providers
+  // "providers": {
+  //   "openai": {
+  //     "settings": {
+  //       "apiKey": "{env:OPENAI_API_KEY}",
+  //       "headerTimeout": 300000,
+  //       "chunkTimeout": 900000,
+  //       "timeout": 1200000,
+  //       "transport": "http",
+  //       "encoding": "none",
+  //       "compaction": { "type": "native" },
+  //     },
+  //     "headers": { "X-Team": "personal" },
+  //     "body": { "metadata": { "application": "opencode" } },
+  //     "models": {
+  //       "gpt-6.1-sol": {
+  //         "settings": {
+  //           "reasoningEffort": "medium",
+  //           "compaction": { "type": "summary" },
+  //         },
+  //         "variants": [
+  //           { "id": "fast", "settings": { "reasoningEffort": "low" } },
+  //           {
+  //             "id": "deep",
+  //             "settings": {
+  //               "reasoningEffort": "high",
+  //               "reasoningSummary": "auto",
+  //             },
+  //             "headers": { "X-Model-Tier": "deep" },
+  //             "body": { "store": false },
+  //           },
+  //         ],
+  //       },
+  //       "coding-default": {
+  //         "modelID": "gpt-6.1-sol",
+  //         "name": "Coding default",
+  //         "disabled": false,
+  //         "capabilities": {
+  //           "tools": true,
+  //           "input": ["text", "image"],
+  //           "output": ["text"],
+  //           "reasoning": {
+  //             "supported": true,
+  //             "effort": ["low", "medium", "high"],
+  //           },
+  //         },
+  //         "limit": { "context": 200000, "output": 32000 },
+  //       },
+  //     },
+  //   },
+  //   "company": {
+  //     "name": "Company gateway (replace this example)",
+  //     "env": ["COMPANY_GATEWAY_KEY"],
+  //     "package": "@opencode/ai/providers/openai-compatible",
+  //     "settings": { "baseURL": "https://gateway.example.com/v1" },
+  //     "models": {
+  //       "coder": {
+  //         "modelID": "model-name-on-server",
+  //         "name": "Company coder",
+  //         "capabilities": {
+  //           "tools": true,
+  //           "input": ["text"],
+  //           "output": ["text"],
+  //         },
+  //         "limit": { "context": 32768, "output": 8192 },
+  //       },
+  //     },
+  //   },
+  //   "ollama": {
+  //     "settings": { "baseURL": "http://127.0.0.1:11434/v1" },
+  //   },
+  //   "lmstudio": {
+  //     "settings": { "baseURL": "http://127.0.0.1:1234/v1" },
+  //   },
+  //   "vllm": {
+  //     "settings": { "baseURL": "http://127.0.0.1:8000/v1" },
+  //   },
+  //   "azure": {
+  //     "settings": { "resourceName": "my-models" },
+  //     "models": { "gpt-6-luna": { "modelID": "gpt-production" } },
+  //   },
+  //   "amazon-bedrock": {
+  //     "settings": { "profile": "work", "region": "us-west-2" },
+  //   },
+  //   "google-vertex": {
+  //     "settings": { "project": "my-project", "location": "us-central1" },
+  //   },
+  //   "litellm": {
+  //     "package": "@opencode/ai/providers/openai-compatible",
+  //     "settings": { "baseURL": "https://litellm.example.com/v1" },
+  //     "models": {
+  //       "claude-sonnet-5-5": {
+  //         "compatibility": { "cacheFormat": "anthropic" },
+  //       },
+  //       "reasoner": {
+  //         "compatibility": { "reasoningField": "reasoning_content" },
+  //       },
+  //     },
+  //   },
+  // },
+  // END EXAMPLE
+  //
+  // Ollama/LM Studio/vLLM discover models automatically at their default URLs.
+  // vLLM discovery does not infer tools; configure actual capabilities only if
+  // the server/model supports them and tool calling is enabled server-side.
+  // Azure needs a real resource/deployment plus API-key or Azure CLI sign-in.
+  // Bedrock uses AWS credentials/SSO; Vertex uses Application Default Credentials.
+  // A proxy that should inherit a built-in catalog can use canonical: "openai".
+  // Local reasoning fields/cache markers are endpoint-specific, not universal.
+
+  // ========================================================================
+  // 03. PERMISSIONS AND TOOL ACCESS
+  // https://opencode.ai/v2/docs/permissions/
+  // Existing empty compatibility entry and disabled tool are preserved.
+  // New rules use permissions with action/resource/effect, not permission.
+  // ========================================================================
+  "permission": {},
+  "tools": {
+    // Existing setting: keep the github-pr-search tool disabled.
+    "github-pr-search": false,
+  },
+
+  // Rules are ordered: LAST matching rule wins. Effects: allow, ask, deny.
+  // * matches any characters (including /); ? matches one character.
+  // A shell pattern ending in " *" also matches the command with no arguments.
+  // edit covers write/edit/patch. grep matches the query, NOT a filesystem path.
+  // External paths need external_directory approval AND the read/edit approval.
+  // Shell allowlists are best effort, not an operating-system sandbox.
+  // Global rules append to built-in defaults; agent rules append after globals.
+  // These conservative sample rules would add prompts if you enabled them.
+  // EXAMPLE: permissions
+  // "permissions": [
+  //   { "action": "read", "resource": "*", "effect": "allow" },
+  //   { "action": "read", "resource": "*.env", "effect": "ask" },
+  //   { "action": "read", "resource": "*.env.*", "effect": "ask" },
+  //   { "action": "read", "resource": "*.env.example", "effect": "allow" },
+  //   { "action": "read", "resource": "*/.ssh/*", "effect": "deny" },
+  //   { "action": "edit", "resource": "*", "effect": "ask" },
+  //   { "action": "shell", "resource": "*", "effect": "ask" },
+  //   { "action": "shell", "resource": "git status *", "effect": "allow" },
+  //   { "action": "shell", "resource": "git diff *", "effect": "allow" },
+  //   { "action": "shell", "resource": "git push *", "effect": "ask" },
+  //   { "action": "external_directory", "resource": "*", "effect": "ask" },
+  //   { "action": "external_directory", "resource": "~/dotfils/*", "effect": "allow" },
+  //   { "action": "glob", "resource": "*", "effect": "allow" },
+  //   { "action": "grep", "resource": "*", "effect": "allow" },
+  //   { "action": "subagent", "resource": "*", "effect": "ask" },
+  //   { "action": "subagent", "resource": "explore", "effect": "allow" },
+  //   { "action": "skill", "resource": "*", "effect": "allow" },
+  //   { "action": "skill", "resource": "experimental-*", "effect": "ask" },
+  //   { "action": "question", "resource": "*", "effect": "allow" },
+  //   { "action": "webfetch", "resource": "https://opencode.ai/*", "effect": "allow" },
+  //   { "action": "websearch", "resource": "*", "effect": "ask" },
+  //   { "action": "context7_*", "resource": "*", "effect": "ask" },
+  //   { "action": "opencode_list_mcp_resources", "resource": "context7", "effect": "allow" },
+  //   { "action": "opencode_read_mcp_resource", "resource": "context7:*", "effect": "allow" },
+  // ],
+  // END EXAMPLE
+  // To remove Code Mode, add an execute rule with resource "*", effect "deny".
+  // That also removes MCP tools exposed only through Code Mode. Nested tools
+  // still enforce their own permissions when Code Mode is available.
+  // A browser deny rule with resource "*" removes the desktop browser catalog.
+
+  // ========================================================================
+  // 04. POLICIES: HARD RESTRICTIONS, NOT APPROVAL PROMPTS
+  // https://opencode.ai/v2/docs/policies/
+  // Unlike permissions, policies can only tighten access and never ask.
+  // This allowlist example would restrict providers to OpenAI/Anthropic.
+  // Within a file the last match wins; global policies outrank project policies.
+  // System/managed/Console policy can outrank this global file.
+  // tool.use allow only lifts an earlier policy deny; it grants no permission.
+  // integration.use can block MCP servers, skills, or plugins from loading.
+  // ========================================================================
+  // EXAMPLE: policies
+  // "policies": [
+  //   { "action": "provider.use", "resource": "*", "effect": "deny" },
+  //   { "action": "provider.use", "resource": "openai", "effect": "allow" },
+  //   { "action": "provider.use", "resource": "anthropic", "effect": "allow" },
+  //   { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
+  //   { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
+  //   { "action": "integration.use", "resource": "mcp:untrusted-*", "effect": "deny" },
+  //   { "action": "integration.use", "resource": "skill:untrusted-*", "effect": "deny" },
+  //   { "action": "integration.use", "resource": "plugin:opencode-untrusted-plugin", "effect": "deny" },
+  // ],
+  // END EXAMPLE
+
+  // ========================================================================
+  // 05. AGENTS: BUILT-IN OVERRIDES, PRIMARY AGENTS, AND SUBAGENTS
+  // https://opencode.ai/v2/docs/agents/
+  // Built-ins: build/plan (primary), general/explore (subagent).
+  // Also discovered in ~/.config/opencode/agents/ and .opencode/agents/*.md.
+  // mode: primary (default), subagent, or all. steps must be positive.
+  // hidden controls visibility, not security. disabled removes an agent.
+  // A nonempty system replaces the provider base prompt; other instructions
+  // still load. Subagents use THEIR OWN permissions, not their parent's limits.
+  // Use /models to verify that a model/variant is available before selecting it.
+  // The reviewer below allows only read/search tools, not shell/edit/MCP tools.
+  // ========================================================================
+  // EXAMPLE: agents
+  // "agents": {
+  //   "build": {
+  //     "model": "openai/gpt-6.1-sol#high",
+  //     "permissions": [
+  //       { "action": "shell", "resource": "git push *", "effect": "ask" },
+  //     ],
+  //   },
+  //   "writer": {
+  //     "description": "Write and maintain project documentation",
+  //     "mode": "primary",
+  //     "system": "Write clear, concise documentation. Preserve existing conventions.",
+  //     "color": "#4f9cf9",
+  //     "hidden": false,
+  //     "disabled": false,
+  //   },
+  //   "reviewer": {
+  //     "description": "Read-only review for correctness, security, and missing tests",
+  //     "mode": "subagent",
+  //     "model": {
+  //       "providerID": "openai",
+  //       "model": "gpt-6.1-sol",
+  //       "variant": "high",
+  //     },
+  //     "system": "Review only. Report findings by severity with file/line references. Do not modify files.",
+  //     "steps": 12,
+  //     "color": "#ff6b6b",
+  //     "hidden": false,
+  //     "disabled": false,
+  //     "permissions": [
+  //       { "action": "*", "resource": "*", "effect": "deny" },
+  //       { "action": "read", "resource": "*", "effect": "allow" },
+  //       { "action": "glob", "resource": "*", "effect": "allow" },
+  //       { "action": "grep", "resource": "*", "effect": "allow" },
+  //       { "action": "webfetch", "resource": "*", "effect": "allow" },
+  //       { "action": "websearch", "resource": "*", "effect": "allow" },
+  //       { "action": "external_directory", "resource": "*", "effect": "ask" },
+  //       { "action": "read", "resource": "*.env", "effect": "ask" },
+  //       { "action": "read", "resource": "*.env.*", "effect": "ask" },
+  //       { "action": "read", "resource": "*.env.example", "effect": "allow" },
+  //     ],
+  //   },
+  //   "compaction": { "model": "openai/gpt-6.1-sol" },
+  // },
+  // END EXAMPLE
+  // Hidden maintenance agents title/summary can also have model overrides.
+  // Agent request overlays are currently retained but NOT sent by the V2
+  // runner; put effective request options on a provider, model, or variant.
+
+  // ========================================================================
+  // 06. MCP: LOCAL PROCESSES, REMOTE OAUTH, HEADERS, AND TIMEOUTS
+  // https://opencode.ai/v2/docs/mcp-servers/
+  // The existing mcp object stays empty until you enable an example.
+  // V2 puts names under mcp.servers, NOT directly under mcp.
+  // All sample servers also have disabled: true as a second safety switch.
+  // To use one, uncomment it, configure it, then remove/set disabled to false.
+  // Local commands require the executable/package to be installed/available.
+  // Only run trusted servers; local MCP processes run with your user's access.
+  // ========================================================================
+  "mcp": {
+    // Timeouts are positive integer milliseconds. Defaults: startup/catalog
+    // 30000 each; execution 43200000 (12 hours). These examples use 10 minutes.
+    // A server timeout overrides matching global timeout fields.
+    // Local cwd is workspace-relative (default is the workspace), not relative
+    // to this config. environment augments the server's inherited environment.
+    // codemode defaults to true; false exposes that server's tools directly.
+    // protocol: legacy (default), auto, or 2026-07-28. Keep legacy unless needed.
+    // EXAMPLE: mcp
+    // "timeout": {
+    //   "startup": 45000,
+    //   "catalog": 30000,
+    //   "execution": 600000,
+    // },
+    // "servers": {
+    //   "playwright": {
+    //     "type": "local",
+    //     "command": ["npx", "-y", "@playwright/mcp"],
+    //     "cwd": ".",
+    //     "environment": { "LOG_LEVEL": "info" },
+    //     "disabled": true,
+    //     "codemode": true,
+    //     "protocol": "legacy",
+    //     "timeout": { "startup": 60000 },
+    //   },
+    //   "company-local": {
+    //     "type": "local",
+    //     "command": ["node", "/absolute/path/mcp-server/index.js"],
+    //     "cwd": "/absolute/path/mcp-server",
+    //     "environment": { "MCP_API_KEY": "{env:MCP_API_KEY}" },
+    //     "disabled": true,
+    //   },
+    //   "sentry": {
+    //     "type": "remote",
+    //     "url": "https://mcp.sentry.dev/mcp",
+    //     "disabled": true,
+    //   },
+    //   "context7": {
+    //     "type": "remote",
+    //     "url": "https://mcp.context7.com/mcp",
+    //     "oauth": false,
+    //     "headers": { "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}" },
+    //     "disabled": true,
+    //     "codemode": false,
+    //     "timeout": { "catalog": 60000 },
+    //   },
+    //   "company-api-key": {
+    //     "type": "remote",
+    //     "url": "https://mcp.example.com/mcp",
+    //     "oauth": false,
+    //     "headers": { "Authorization": "Bearer {env:COMPANY_MCP_API_KEY}" },
+    //     "disabled": true,
+    //   },
+    //   "company-oauth": {
+    //     "type": "remote",
+    //     "url": "https://mcp.example.com/mcp",
+    //     "oauth": {
+    //       "client_id": "{env:MCP_CLIENT_ID}",
+    //       "client_secret": "{env:MCP_CLIENT_SECRET}",
+    //       "scope": "tools:read tools:execute",
+    //       "callback_port": 19876,
+    //       "redirect_uri": "http://127.0.0.1:19876/callback",
+    //       "auth_server_metadata_url": "https://auth.example.com/.well-known/oauth-authorization-server",
+    //     },
+    //     "disabled": true,
+    //   },
+    // },
+    // END EXAMPLE
+    //
+    // Remote OAuth is on by default: normally just type + url is enough.
+    // Use oauth: false only for API-key/header-only endpoints or when required.
+    // For pre-registered OAuth clients, omit client_secret for public clients;
+    // scope/callback/redirect/metadata overrides are optional and server-specific.
+    // OAuth tokens are stored OUTSIDE this file; never copy them into dotfiles.
+    // After enabling: opencode mcp list; use /mcps -> select server -> sign in.
+    // CLI alternative for adding a server (writes active global config):
+    // opencode mcp add sentry --global --url https://mcp.sentry.dev/mcp
+    // Use unique server names; project overrides REPLACE the whole server object.
+    // Direct permission names are <server>_<tool>; normalize unsupported chars
+    // to _. For example, context7_* matches that server's tool actions.
+    // More MCP tools consume context: enable only the servers you actually need.
+  },
+
+  // ========================================================================
+  // 07. SLASH COMMANDS AND PROMPT TEMPLATES
+  // https://opencode.ai/v2/docs/commands/
+  // Also discovered in ~/.config/opencode/commands/ and .opencode/commands/.
+  // template is required. $ARGUMENTS is the full text; $1/$2 are positions.
+  // The highest numbered position consumes the remaining arguments too.
+  // subagent: true runs in a background child; false forces current session.
+  // With subagent omitted, a subagent-mode agent runs in a child automatically.
+  // Shell blocks such as !`git diff` run BEFORE the prompt, OUTSIDE agent tool
+  // permission checks. Only use trusted static commands; never inject untrusted
+  // arguments into shell blocks. Stored @path text does not attach a file.
+  // ========================================================================
+  // EXAMPLE: commands
+  // "commands": {
+  //   "review": {
+  //     "description": "Review a file or change without editing",
+  //     "template": "Review $ARGUMENTS for correctness, security, and missing tests. Do not edit files.",
+  //     "agent": "plan",
+  //     "model": "openai/gpt-6.1-sol#high",
+  //     "subagent": false,
+  //   },
+  //   "compare": {
+  //     "description": "Compare two targets: /compare first second",
+  //     "template": "Compare $1 with $2. Explain the important differences.",
+  //   },
+  //   "review-diff": {
+  //     "description": "Review the current working diff",
+  //     "template": "Review this diff for bugs and missing tests:\n\n!`git diff`",
+  //     "agent": "plan",
+  //   },
+  //   "audit": {
+  //     "description": "Explore a target in a background child session",
+  //     "template": "Audit $ARGUMENTS. Report findings without modifying files.",
+  //     "agent": "explore",
+  //     "subagent": true,
+  //   },
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 08. SKILL SOURCES
+  // https://opencode.ai/v2/docs/skills/
+  // Default discovery includes ~/.config/opencode/skills/ and .opencode/skills/.
+  // Store a skill at <source>/<id>/SKILL.md with a useful description.
+  // Configured paths add sources; relative paths use the ACTIVE working
+  // directory, not this config directory. Arrays combine across config files.
+  // HTTP catalog URLs need index.json and same-origin skill files.
+  // Skills are instructions, not executable tools; only load trusted sources.
+  // ========================================================================
+  // EXAMPLE: skills
+  // "skills": [
+  //   "~/shared/opencode-skills",
+  //   "./team-skills",
+  //   "/opt/company-skills",
+  //   "https://example.com/.well-known/skills/",
+  // ],
+  // END EXAMPLE
+
+  // ========================================================================
+  // 09. EXTRA INSTRUCTIONS
+  // https://opencode.ai/v2/docs/instructions/
+  // AGENTS.md files are discovered automatically; this adds more instructions.
+  // Relative paths/globs are searched from the workspace up to the project root.
+  // ~/ paths resolve from home; URLs are fetched when config loads.
+  // Entries combine across configs and load after AGENTS.md, in listed order.
+  // Missing files are skipped. Remote instructions must be from trusted URLs.
+  // ========================================================================
+  // EXAMPLE: instructions
+  // "instructions": [
+  //   "CONTRIBUTING.md",
+  //   "docs/guidelines/*.md",
+  //   "~/rules/opencode.md",
+  //   "https://example.com/team/instructions.md",
+  // ],
+  // END EXAMPLE
+
+  // ========================================================================
+  // 10. REFERENCES: LOCAL DIRECTORIES AND REMOTE REPOSITORIES
+  // https://opencode.ai/v2/docs/references/
+  // Your two existing references remain active below.
+  // Relative local paths resolve from this CONFIG's directory (unlike skills).
+  // description advertises a reference to agents. hidden only affects selectors;
+  // it does not grant/restrict permissions or remove it from agent guidance.
+  // Remote checkouts are shared caches refreshed in the background: do not edit
+  // them because refresh resets them. Normal external-directory rules apply.
+  // ========================================================================
+  "references": {
+    "effect": {
+      "repository": "github.com/Effect-TS/effect-smol",
+      "description": "Use for Effect v4 and effect-smol implementation details",
+    },
+    "opencode-local": {
+      "path": "~/.local/share/opencode",
+      "description": "Contains opencode logs and data",
+    },
+
+    // Add individual entries inside this existing references object.
+    // A shorthand local string MUST start with ., /, or ~; bare owner/repo is Git.
+    // EXAMPLE: references
+    // "product-docs": {
+    //   "path": "~/Documents/product-docs",
+    //   "description": "Use for product terminology and expected behavior",
+    //   "hidden": false,
+    // },
+    // "upstream-effect": {
+    //   "repository": "Effect-TS/effect",
+    //   "branch": "main",
+    //   "description": "Use for upstream Effect implementation details",
+    //   "hidden": true,
+    // },
+    // "shared": "~/work/shared",
+    // "example-sdk": "example/sdk",
+    // END EXAMPLE
+  },
+
+  // ========================================================================
+  // 11. PLUGINS
+  // https://opencode.ai/v2/docs/plugins/
+  // https://opencode.ai/v2/docs/build/plugins/
+  // Package names below are PLACEHOLDERS, not recommendations to install them.
+  // Plugins execute code: use only trusted packages and pin versions as needed.
+  // Explicit local targets must be directories, not individual files.
+  // Relative targets resolve from this config directory; options are plugin-specific.
+  // Global ~/.config/opencode/plugins/ and project .opencode/plugins/ are
+  // discovered automatically. Plugin arrays apply in order across config files.
+  // -id disables a plugin; * matches all, and -prefix.* disables an ID prefix.
+  // Console/policy-enforcement plugins cannot be disabled this way.
+  // ========================================================================
+  // EXAMPLE: plugins
+  // "plugins": [
+  //   "opencode-acme-plugin@1.2.0",
+  //   {
+  //     "package": "./plugins/my-plugin",
+  //     "options": { "strict": true },
+  //   },
+  //   "-opencode.provider.ollama",
+  // ],
+  // END EXAMPLE
+
+  // ========================================================================
+  // 12. FILE FORMATTING
+  // https://opencode.ai/v2/docs/formatters/
+  // Disabled by default. formatter: true enables available built-ins; false
+  // disables formatting. An object enables built-ins plus overrides/customs.
+  // Each new formatter needs command AND extensions; executables must exist.
+  // $FILE becomes an absolute filename; command is argv, not a shell string.
+  // Runs from the active project after write/edit/patch, not arbitrary shell edits.
+  // If several match, OpenCode stops after the first successful formatter.
+  // ========================================================================
+  // EXAMPLE: formatter
+  // "formatter": {
+  //   "prettier": { "disabled": true },
+  //   "shfmt": {
+  //     "command": ["shfmt", "-w", "-i", "2", "$FILE"],
+  //     "extensions": [".sh", ".bash"],
+  //     "environment": { "LC_ALL": "C" },
+  //   },
+  //   "deno-markdown": {
+  //     "command": ["deno", "fmt", "$FILE"],
+  //     "extensions": [".md"],
+  //   },
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 13. SNAPSHOTS AND FILE WATCHER
+  // https://opencode.ai/v2/docs/snapshots/
+  // https://opencode.ai/v2/docs/config/#watcher
+  // Snapshots default to true and require Git for filesystem undo/redo.
+  // They are best effort, NOT a backup; shell/service/network side effects
+  // cannot be undone by snapshots. false stops future capture, not old storage.
+  // Watcher ignores only suppress filesystem updates; they do NOT deny access.
+  // ========================================================================
+  // EXAMPLE: snapshots-watcher
+  // "snapshots": true,
+  // "watcher": {
+  //   "ignore": ["dist/**", "coverage/**"],
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 14. IMAGE PROCESSING AND TOOL OUTPUT LIMITS
+  // https://opencode.ai/v2/docs/attachments/
+  // https://opencode.ai/v2/docs/config/#output
+  // Image limits below are the documented defaults, in pixels/base64 bytes.
+  // auto_resize: false rejects oversized images instead of resizing them.
+  // These affect prompt/read images; provider limits still apply. If the resizer
+  // is unavailable originals pass through, so this is not a security boundary.
+  // tool_output caps retained tool-result lines/bytes, not the context window.
+  // ========================================================================
+  // EXAMPLE: media-output
+  // "media": {
+  //   "image": {
+  //     "auto_resize": true,
+  //     "max_width": 2000,
+  //     "max_height": 2000,
+  //     "max_base64_bytes": 5242880,
+  //   },
+  // },
+  // "tool_output": {
+  //   "max_lines": 2000,
+  //   "max_bytes": 51200,
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 15. WEB SEARCH
+  // https://opencode.ai/v2/docs/websearch/
+  // provider IDs: exa, firecrawl, parallel, tavily, tinyfish, or random.
+  // Supply the matching SERVER env var or connect via /connect:
+  // EXA_API_KEY, FIRECRAWL_API_KEY, PARALLEL_API_KEY, TAVILY_API_KEY,
+  // TINYFISH_API_KEY (optional for TinyFish).
+  // random chooses an available provider and can fail over on rate limits.
+  // websearch: false removes the tool entirely; use that INSTEAD of this object.
+  // ========================================================================
+  // EXAMPLE: websearch
+  // "websearch": {
+  //   "provider": "random",
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 16. CONTEXT COMPACTION
+  // https://opencode.ai/v2/docs/compaction/
+  // auto defaults to true; keep.tokens defaults to 15000. Both keep.tokens and
+  // buffer are nonnegative token counts. The default buffer is 15% of the
+  // model limit with a minimum of 16000; this example chooses 20000 explicitly.
+  // Larger buffers compact earlier; larger keep retains more recent detail.
+  // auto: false still permits manual compaction. Summaries are lossy.
+  // For summary model overrides, see agents.compaction.model above.
+  // Native OpenAI Responses compaction is opt-in via provider/model
+  // settings.compaction.type: native; summary selects OpenCode summaries.
+  // ========================================================================
+  // EXAMPLE: compaction
+  // "compaction": {
+  //   "auto": true,
+  //   "keep": { "tokens": 15000 },
+  //   "buffer": 20000,
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 17. SESSION WARMING (REAL REQUESTS; CAN COST MONEY)
+  // https://opencode.ai/v2/docs/warming/
+  // Disabled by default. warming: true uses default timing; false disables it.
+  // Object fields are optional. Durations must be finite and greater than zero.
+  // Requests use the current session context; replies are discarded, local tools
+  // do not execute, and conversation history is not changed. Usage still counts.
+  // ========================================================================
+  // EXAMPLE: warming
+  // "warming": {
+  //   "prompt": "Do not perform any work or use tools. Reply with exactly: OK",
+  //   "interval": "4 minutes",
+  //   "duration": "30 minutes",
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 18. WORKTREE DESTINATION
+  // https://opencode.ai/v2/docs/config/#worktrees
+  // OpenCode appends a worktree name to this parent directory.
+  // Relative paths resolve from each project's saved canonical checkout,
+  // even when configured globally. ~/ and absolute paths are also supported.
+  // This only affects NEW worktrees; it does not relocate existing ones.
+  // Git is built in; plugin-specific worktree strategies use plugin options.
+  // ========================================================================
+  // EXAMPLE: worktree
+  // "worktree": {
+  //   "directory": "../worktrees",
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 19. EXPERIMENTAL FEATURES (UNSTABLE; OPT IN INDIVIDUALLY)
+  // https://opencode.ai/v2/docs/config/#experimental
+  // todo: adds todowrite (default false).
+  // subagent_depth: default 1; 2 lets a child launch another child.
+  // portable_shell_scanner: replaces, not supplements, the default shell parser.
+  // background_compaction: precomputes summaries; unused summaries still cost.
+  // location_idle_timeout: default "60 minutes"; false prevents idle unloading.
+  // Running sessions/background jobs keep the location loaded.
+  // Do not use deprecated experimental.policies; use top-level policies.
+  // ========================================================================
+  // EXAMPLE: experimental
+  // "experimental": {
+  //   "todo": true,
+  //   "subagent_depth": 2,
+  //   "portable_shell_scanner": true,
+  //   "background_compaction": true,
+  //   "location_idle_timeout": "2 hours",
+  // },
+  // END EXAMPLE
+
+  // ========================================================================
+  // 20. SETTINGS THAT BELONG ELSEWHERE (NO EXTRA ACTIVE CONFIG HERE)
+  // Terminal appearance/theme, mouse/scrolling, prompt/session/tabs/diffs,
+  // notifications/sounds, keybindings, Mini, and terminal-only plugins:
+  //   ~/.config/opencode/cli.json
+  //   https://opencode.ai/v2/docs/cli/config/
+  //   https://opencode.ai/v2/docs/cli/keybinds/
+  // Do not add terminal-only settings to opencode.jsonc.
+  //
+  // Network proxy/private CA settings use the server environment, not root
+  // HTTP_PROXY/HTTPS_PROXY/NODE_EXTRA_CA_CERTS JSON fields. Keep NO_PROXY set
+  // to localhost,127.0.0.1,::1 when configuring a proxy. Managed-service values
+  // are configured with opencode service set env; changing them stops the service.
+  //   https://opencode.ai/v2/docs/network/
+  //
+  // Keep runtime state, service.json, installed node_modules, logs, credentials,
+  // and OAuth storage machine-local. This Stow package manages configs/examples;
+  // stow it with --no-folding so the whole runtime directory is never linked.
+}

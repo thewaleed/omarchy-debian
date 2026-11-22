@@ -92,6 +92,25 @@ systemctl --user stop herdr-term-tunnel   # cut office access immediately
 
 The office page is a full shell behind one password: keep it long and never save it in the office browser.
 
+## OpenCode
+
+The `opencode` package manages files under `~/.config/opencode/`. Edit the sources in `opencode/.config/opencode/`:
+
+- `opencode.jsonc`: active server settings plus commented V2 examples.
+- `cli.json`: current TUI preferences and Herdr plugin, with no comments.
+- `cli.example.json`: compact optional examples; not loaded automatically.
+
+Copy only the wanted settings from `cli.example.json` into `cli.json`, merging existing objects instead of duplicating keys. Plugin and sound paths in the examples are placeholders. Available values and shortcuts: [settings](https://opencode.ai/v2/docs/cli/config/) and [keybindings](https://opencode.ai/v2/docs/cli/keybinds/). Never track credentials.
+
+Use `--no-folding` so Stow links only these files, not the whole OpenCode runtime directory. Installed dependencies, service state, credentials, and the local Herdr plugin directory stay machine-local.
+
+```sh
+stow --simulate --verbose --no-folding --dir="$HOME/dotfils" --target="$HOME" opencode
+stow --verbose --no-folding --dir="$HOME/dotfils" --target="$HOME" opencode
+```
+
+An existing regular file at the destination must be reviewed and backed up outside the repository before stowing; do not use `--adopt`.
+
 ## Other home packages
 
 These packages target `$HOME`:
