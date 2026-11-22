@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Builds the page herdr-ttyd serves (ttyd -I): ttyd's own built-in index.html with
+# osc52.js injected, so copies made inside herdr reach the browser clipboard.
+# Runs as ExecStartPre of herdr-ttyd.service; rebuilds only when ttyd or osc52.js
+# is newer than the built page. Pass --force to always rebuild.
+set -euo pipefail
+
+here=$(dirname "$(readlink -f "$0")")
+ttyd=${TTYD:-$HOME/.local/bin/ttyd}
+js=$here/osc52.js
+out=$HOME/.local/state/herdr-term/ttyd-index.html
+port=7689 # throwaway ttyd, only to read its stock page
+
+if [[ ${1:-} != --force && -s $out && $out -nt $ttyd && $out -nt $js ]]; then
+	exit 0
+fi
+
+mkdir -p "$(dirname "$out")"
+stock=$(mktemp)
+"$ttyd" --interface 127.0.0.1 --port "$port" true >/dev/null 2>&1 &
+pid=$!
+trap 'kill "$pid" 2>/dev/null; rm -f "$stock" "$out.tmp"' EXIT
+
+for _ in $(seq 50); do
+	curl -fsS "http://127.0.0.1:$port/" -o "$stock" 2>/dev/null && break
+	sleep 0.1
+done
+[[ -s $stock ]] || { echo "build-ttyd-index: could not read ttyd's stock page" >&2; exit 1; }
+
+python3 -I - "$stock" "$js" "$out.tmp" <<'EOF'
+import sys
+stock, js, out = sys.argv[1:]
+html = open(stock, encoding="utf-8").read()
+script = open(js, encoding="utf-8").read()
+i = html.rfind("</body>")
+if i < 0:
+    sys.exit("build-ttyd-index: no </body> in ttyd's page")
+open(out, "w", encoding="utf-8").write(html[:i] + "<script>\n" + script + "</script>" + html[i:])
+EOF
+mv "$out.tmp" "$out"

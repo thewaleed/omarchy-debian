@@ -2,7 +2,13 @@
 Description=Herdr in a browser terminal (ttyd, localhost only)
 
 [Service]
-ExecStart=%h/.local/bin/ttyd --interface 127.0.0.1 --port 7681 --writable --check-origin -t titleFixed=Herdr %h/.local/bin/herdr
+# Stock ttyd page + osc52.js, so herdr's copies reach the browser clipboard
+# (OSC 52). The herdr client only sends OSC 52 when it has no desktop session:
+# with WAYLAND_DISPLAY/DISPLAY set it runs wl-copy instead, and a copy made in
+# the remote browser lands on this PC's own clipboard.
+UnsetEnvironment=WAYLAND_DISPLAY DISPLAY
+ExecStartPre=%h/.config/herdr-term/build-ttyd-index
+ExecStart=%h/.local/bin/ttyd --interface 127.0.0.1 --port 7681 --writable --check-origin -t titleFixed=Herdr -I %h/.local/state/herdr-term/ttyd-index.html %h/.local/bin/herdr
 Restart=on-failure
 RestartSec=5
 
