@@ -27,6 +27,10 @@ Panel {
   property var displays: []
   property int enabledDisplayCount: 0
 
+  // Wireless casting (Miracast / Chromecast) via gnome-network-displays, an
+  // optional package; the CAST section only shows when it is installed.
+  property bool castAvailable: false
+
   // Carry sub-notch touchpad deltas between wheel events.
   property real wheelAccumulator: 0
 
@@ -101,6 +105,7 @@ Panel {
     list.push("textsize")
     list.push("scale")
     if (displays.length > 1) list.push("monitors")
+    if (castAvailable) list.push("cast")
     if (layouts) list.push("layouts")
     return list
   }
@@ -110,6 +115,7 @@ Panel {
     if (section === "textsize") return 0    // slider sentinel at -1, like brightness
     if (section === "scale") return scaleValues.length
     if (section === "monitors") return displays.length
+    if (section === "cast") return 1
     if (section === "layouts") return layoutRowCount
     return 0
   }
@@ -179,6 +185,10 @@ Panel {
     if (focusSection === "monitors" && selectedIndex >= 0 && selectedIndex < displays.length) {
       var d = displays[selectedIndex]
       if (d) toggleDisplay(d.name, d.enabled)
+      return
+    }
+    if (focusSection === "cast") {
+      startCast()
       return
     }
     if (focusSection === "layouts" && selectedIndex >= 0 && selectedIndex < layoutRowCount) {
@@ -335,6 +345,12 @@ Panel {
     if (!actionProc.running) actionProc.running = true
   }
 
+  // The picker window takes over from here, so get the panel out of its way.
+  function startCast() {
+    root.close()
+    Quickshell.execDetached(["uwsm-app", "--", "gnome-network-displays"])
+  }
+
   // ---- Layouts (hyprmoncfg) ----
   function injectLayouts() {
     var target = layoutLoader.item
@@ -424,6 +440,7 @@ Panel {
   Component.onCompleted: {
     refresh()
     layoutProbe.running = true
+    castProbe.running = true
   }
   onBarChanged: injectLayouts()
 
@@ -431,6 +448,12 @@ Panel {
     id: layoutProbe
     command: ["test", "-r", root.layoutPanelPath]
     onExited: function(exitCode) { root.layoutPanelPresent = exitCode === 0 }
+  }
+
+  Process {
+    id: castProbe
+    command: ["omarchy-cmd-present", "gnome-network-displays"]
+    onExited: function(exitCode) { root.castAvailable = exitCode === 0 }
   }
 
   Loader {
@@ -919,6 +942,34 @@ Panel {
             }
           }
 
+          // ---------- Cast (wireless display) ----------
+          PanelSeparator {
+            visible: root.castAvailable
+            foreground: root.bar.foreground
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(10)
+            visible: root.castAvailable
+
+            PanelSectionHeader {
+              text: "CAST"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+            }
+
+            LayoutRow {
+              width: panelColumn.width
+              section: "cast"
+              rowIndex: 0
+              icon: String.fromCodePoint(0xF0118)
+              label: "Cast screen to TV"
+              tag: String.fromCodePoint(0xF0142)
+              onActivated: root.startCast()
+            }
+          }
+
           // ---------- Layouts (hyprmoncfg) ----------
           PanelSeparator {
             visible: !!root.layouts
@@ -1041,12 +1092,14 @@ Panel {
   component LayoutRow: CursorSurface {
     id: layoutRow
     required property int rowIndex
+    // Cursor section this row belongs to; LAYOUTS and CAST share the row style.
+    property string section: "layouts"
     property string icon: ""
     property string label: ""
     property string tag: ""
     signal activated()
 
-    hasCursor: root.cursorActive && root.focusSection === "layouts" && root.selectedIndex === rowIndex
+    hasCursor: root.cursorActive && root.focusSection === section && root.selectedIndex === rowIndex
     onHasCursorChanged: if (hasCursor) root.ensureCursorVisible(layoutRow)
     foreground: root.bar.foreground
     fill: Style.hoverFillFor(root.bar.foreground, Color.accent)
@@ -1102,7 +1155,7 @@ Panel {
       cursorShape: Qt.PointingHandCursor
       onContainsMouseChanged: if (containsMouse && !root.reflowingText) {
         root.cursorActive = true
-        root.focusSection = "layouts"
+        root.focusSection = layoutRow.section
         root.selectedIndex = layoutRow.rowIndex
       }
       onClicked: layoutRow.activated()
